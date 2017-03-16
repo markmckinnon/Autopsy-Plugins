@@ -198,12 +198,14 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
         progressBar.switchToIndeterminate()
         
         if self.local_settings.getRecentlyused_Flag():
+            progressBar.progress("Processing Recently Used Apps")	
             self.process_Recentlyused(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Recentlyused Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getJumplist_Flag():
+            progressBar.progress("Processing Jumplists")	
             self.log(Level.INFO, "Starting to process Jumplist")
             self.process_Jumplist(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
@@ -211,36 +213,42 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getPrefetch_Flag():
+            progressBar.progress("Processing Prefetch")	
             self.process_Prefetch(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Prefetch Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getSAM_Flag():
+            progressBar.progress("Processing SAM")	
             self.process_SAM(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " SAM Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getShellbags_Flag():
+            progressBar.progress("Processing Shellbags")	
             self.process_Shellbags(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Shellbags Have Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getShimcache_Flag():
+            progressBar.progress("Processing Shimcache")	
             self.process_Shimcache(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Shimcache Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getUsnj_Flag():
+            progressBar.progress("Processing UsnJ")	
             self.process_Usnj(dataSource, progressBar)        
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Usnj Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
         if self.local_settings.getWebcache_Flag():
+            progressBar.progress("Processing Webcache")	
             self.process_Webcache(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Webcache Has Been Analyzed " )
@@ -482,7 +490,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                            # index the artifact for keyword search
                            try:
                                blackboard.indexArtifact(art)
-                           except Blackboard.BlackboardException as e:
+                           except:
                                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
                 
                        except SQLException as e:
@@ -775,7 +783,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                 try:
                     # index the artifact for keyword search
                     blackboard.indexArtifact(art)
-                except Blackboard.BlackboardException as e:
+                except:
                     self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
                 
             # Fire an event to notify the UI and others that there are new artifacts  
@@ -1005,7 +1013,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                 try:
                     #index the artifact for keyword search
                     blackboard.indexArtifact(art)
-                except Blackboard.BlackboardException as e:
+                except:
                     self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
 			
             IngestServices.getInstance().fireModuleDataEvent(ModuleDataEvent(Windows_InternalsIngestModuleFactory.moduleName, artID_pf_evt, None))
@@ -1141,7 +1149,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                       # index the artifact for keyword search
                       try:
                           blackboard.indexArtifact(art)
-                      except Blackboard.BlackboardException as e:
+                      except:
                           self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
                          
                except SQLException as e:
@@ -1279,7 +1287,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                       # index the artifact for keyword search
                       try:
                           blackboard.indexArtifact(art)
-                      except Blackboard.BlackboardException as e:
+                      except:
                           self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
 						
                except SQLException as e:
@@ -1415,7 +1423,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                       # index the artifact for keyword search
                       try:
                           blackboard.indexArtifact(art)
-                      except Blackboard.BlackboardException as e:
+                      except:
                           self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
                         
                except SQLException as e:
@@ -1572,7 +1580,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                       # index the artifact for keyword search
                       try:
                           blackboard.indexArtifact(art)
-                      except Blackboard.BlackboardException as e:
+                      except:
                           self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
    
                    IngestServices.getInstance().fireModuleDataEvent(
@@ -1715,7 +1723,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                       # index the artifact for keyword search
                       try:
                           blackboard.indexArtifact(art)
-                      except Blackboard.BlackboardException as e:
+                      except:
                           self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
             
                except SQLException as e:
