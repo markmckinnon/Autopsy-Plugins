@@ -32,6 +32,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - March 2017
+#   Version 1.1 - Added code for File History module - April 2017
 # 
 
 import jarray
