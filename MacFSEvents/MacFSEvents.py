@@ -1,5 +1,5 @@
 # This python autopsy module will export the .fsevents directory and run the 
-# FSEParser_v2.0.exe prorgam against the exported data.  It will then import 
+# FSEParser_v2.1.exe prorgam against the exported data.  It will then import 
 # the SQLite database that was created from the program.
 #
 # Contact: Mark McKinnon [Mark [dot] McKinnon <at> gmail [dot] com]
@@ -32,6 +32,10 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - May 2017
+#   Version 1.1 - Updated executable called to FSEParser_v2.1.exe and
+#                 add different types of fsevents to display.  The different
+#                 types of events are stored in a SQLite database so more can
+#                 be added at a later date without having to change the code.
 # 
 
 import jarray
@@ -144,7 +148,7 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
         self.context = context
 
         #Show parameters that are passed in
-        self.MacFSEvents_Executable = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fseparser_v2.0.exe")
+        self.MacFSEvents_Executable = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fseparser_v2.1.exe")
         self.Plugins = self.local_settings.getPluginListBox()
         
         self.log(Level.INFO, "MacFSEvents Executable ==> " + self.MacFSEvents_Executable)
@@ -217,13 +221,34 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
         out_text = pipe.communicate()[0]
         self.log(Level.INFO, "Output from run is ==> " + out_text)               
 
+        database_file = Temp_Dir + "\\autopsy_FSEvents-Parsed_Records_DB.sqlite" 
+        
+        #open the database to get the SQL and artifact info out of
+        try: 
+            head, tail = os.path.split(os.path.abspath(__file__)) 
+            settings_db = head + "\\fsevents_sql.db3"
+            Class.forName("org.sqlite.JDBC").newInstance()
+            dbConn1 = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
+        except SQLException as e:
+            self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+            return IngestModule.ProcessResult.OK
+
         try:
-             self.log(Level.INFO, "Begin Create New Artifacts")
-             artID_fse = skCase.addArtifactType( "TSK_MACOS_FSEVENTS", "FSEvents")
-        except:		
-             self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
-             artID_fse = skCase.getArtifactTypeID("TSK_MACOS_FSEVENTS")
-             
+            stmt1 = dbConn1.createStatement()
+            sql_statement1 = "select distinct artifact_name, artifact_title from extracted_content_sql;"
+            #self.log(Level.INFO, "SQL Statement ==> " + sql_statement)
+            resultSet1 = stmt1.executeQuery(sql_statement1)
+            while resultSet1.next():
+                try:
+                     self.log(Level.INFO, "Begin Create New Artifacts")
+                     artID_fse = skCase.addArtifactType( resultSet1.getString("artifact_name"), resultSet1.getString("artifact_title"))
+                except:		
+                     self.log(Level.INFO, "Artifacts Creation Error, " + resultSet1.getString("artifact_name") + " some artifacts may not exist now. ==> ")
+                                      
+        except SQLException as e:
+           self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+           #return IngestModule.ProcessResult.OK
+        
         # Create the attribute type, if it exists then catch the error
         try:
             attID_fse_fn = skCase.addArtifactAttributeType("TSK_FSEVENTS_FILE_NAME", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "File Name")
@@ -252,8 +277,10 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
             self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
             return IngestModule.ProcessResult.OK
         
-        artID_fse = skCase.getArtifactTypeID("TSK_MACOS_FSEVENTS")
-        artID_fse_evt = skCase.getArtifactType("TSK_MACOS_FSEVENTS")
+        #artID_fse = skCase.getArtifactTypeID("TSK_MACOS_FSEVENTS")
+        #artID_fse_evt = skCase.getArtifactType("TSK_MACOS_FSEVENTS")
+        artID_fse = skCase.getArtifactTypeID("TSK_MACOS_ALL_FSEVENTS")
+        artID_fse_evt = skCase.getArtifactType("TSK_MACOS_ALL_FSEVENTS")
         attID_fse_fn = skCase.getAttributeType("TSK_FSEVENTS_FILE_NAME")
         attID_fse_msk = skCase.getAttributeType("TSK_FSEVENTS_FILE_MASK")
         attID_fse_src = skCase.getAttributeType("TSK_FSEVENTS_SOURCE")
@@ -266,34 +293,43 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
             elif (file.getName() == '..') or (file.getName() == '.'):
                 pass
             else:
-                try:
-                    stmt = dbConn.createStatement()
-                    sql_statement = "select filename, mask, source, " + \
-                                    " case other_dates when 'UNKNOWN' then NULL else other_dates end 'OTHER_DATES' " + \
-                                    " from fsevents where source = '" + file.getName() + "';"
-                    #self.log(Level.INFO, "SQL Statement ==> " + sql_statement)
-                    resultSet = stmt.executeQuery(sql_statement)
-                    #self.log(Level.INFO, "query SQLite Master table ==> " )
-                    #self.log(Level.INFO, "query " + str(resultSet))
-                    # Cycle through each row and create artifact
-                    while resultSet.next():
-                    # Add the attributes to the artifact.
-                        art = file.newArtifact(artID_fse)
-                        #self.log(Level.INFO, "Result ==> " + resultSet.getString("mask") + ' <==> ' + resultSet.getString("source"))
-                        art.addAttributes(((BlackboardAttribute(attID_fse_fn, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("filename"))), \
-                                      (BlackboardAttribute(attID_fse_msk, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("mask"))), \
-                                      (BlackboardAttribute(attID_fse_src, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("source"))), \
-                                      (BlackboardAttribute(attID_fse_dte, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("OTHER_DATES")))))
-                                      
-                        #try:
-                        # index the artifact for keyword search
-                           #blackboard.indexArtifact(art)
-                        #except:
-                           #self.log(Level.INFO, "Error indexing artifact " + art.getDisplayName())
+               stmt1 = dbConn1.createStatement()
+               sql_statement1 = "select sql_statement, artifact_name, artifact_title from extracted_content_sql;"
+               #self.log(Level.INFO, "SQL Statement ==> " + sql_statement)
+               resultSet1 = stmt1.executeQuery(sql_statement1)
+               while resultSet1.next():
+                    try:
+                        artID_fse = skCase.getArtifactTypeID(resultSet1.getString("artifact_name"))
+                        artID_fse_evt = skCase.getArtifactType(resultSet1.getString("artifact_name"))
+                                 
+                        try:
+                            stmt = dbConn.createStatement()
+                            sql_statement = resultSet1.getString("sql_statement") + " and source like '%" + file.getName() + "';"
+                            #self.log(Level.INFO, "SQL Statement ==> " + sql_statement)
+                            resultSet = stmt.executeQuery(sql_statement)
+                            #self.log(Level.INFO, "query SQLite Master table ==> " )
+                            #self.log(Level.INFO, "query " + str(resultSet))
+                            # Cycle through each row and create artifact
+                            while resultSet.next():
+                            # Add the attributes to the artifact.
+                                art = file.newArtifact(artID_fse)
+                                #self.log(Level.INFO, "Result ==> " + resultSet.getString("mask") + ' <==> ' + resultSet.getString("source"))
+                                art.addAttributes(((BlackboardAttribute(attID_fse_fn, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("filename"))), \
+                                              (BlackboardAttribute(attID_fse_msk, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("mask"))), \
+                                              (BlackboardAttribute(attID_fse_src, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("source"))), \
+                                              (BlackboardAttribute(attID_fse_dte, MacFSEventsIngestModuleFactory.moduleName, resultSet.getString("OTHER_DATES")))))
+                                              
+                                #try:
+                                # index the artifact for keyword search
+                                   #blackboard.indexArtifact(art)
+                                #except:
+                                   #self.log(Level.INFO, "Error indexing artifact " + art.getDisplayName())
 
-                except SQLException as e:
-                   self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
-                   return IngestModule.ProcessResult.OK
+                        except SQLException as e:
+                           self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+                           return IngestModule.ProcessResult.OK
+                    except SQLException as e:
+                        self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
 
             try:
                stmt.close()
@@ -306,8 +342,10 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
         try:
              stmt.close()
              dbConn.close()
+             stmt1.close()
+             dbConn1.close()
              os.remove(Temp_Dir + "\Autopsy_FSEvents-EXCEPTIONS_LOG.txt")		
-             os.remove(Temp_Dir + "\Autopsy_FSEvents-Parsed_Records.txt")
+             os.remove(Temp_Dir + "\Autopsy_FSEvents-Parsed_Records.tsv")
              os.remove(Temp_Dir + "\Autopsy_FSEvents-Parsed_Records_DB.sqlite")
              shutil.rmtree(Temp_Dir + "\MacFSEvents")
         except:
