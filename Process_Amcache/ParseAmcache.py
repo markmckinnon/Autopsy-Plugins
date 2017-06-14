@@ -155,7 +155,7 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
             self.List_Of_tables.append('unassociated_programs')
         
         #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", str(self.List_Of_Events))
-        self.log(Level.INFO, str(self.List_Of_tables))
+        self.log(Level.INFO, str(self.List_Of_tables) + " >> " + str(len(self.List_Of_tables)))
 
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
@@ -168,6 +168,11 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
     # 'progressBar' is of type org.sleuthkit.autopsy.ingest.DataSourceIngestModuleProgress
     # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_data_source_ingest_module_progress.html
     def process(self, dataSource, progressBar):
+
+        if len(self.List_Of_tables) < 1:
+            message = IngestMessage.createMessage(IngestMessage.MessageType.DATA, "ParseEvtx", " No Amcache tables Selected to Parse " )
+            IngestServices.getInstance().postMessage(message)
+            return IngestModule.ProcessResult.ERROR
 
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
@@ -210,7 +215,7 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
             return IngestModule.ProcessResult.OK
 
         # Run the EXE, saving output to a sqlite database
-        self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "  Parm 2 ==> " + Temp_Dir + "\Amcache.db3")
+        self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "\Amcache\Amcache.hve  Parm 2 ==> " + Temp_Dir + "\Amcache.db3")
         subprocess.Popen([self.path_to_exe, Temp_Dir + "\Amcache\Amcache.hve", Temp_Dir + "\Amcache.db3"]).communicate()[0]   
                
         for file in files:	
@@ -318,9 +323,9 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
                    except SQLException as e:
                        self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
 
-        # Clean up
-        stmt.close()
-        dbConn.close()
+            # Clean up
+               stmt.close()
+           dbConn.close()
         #os.remove(lclDbPath)
         	
 		#Clean up EventLog directory and files
