@@ -35,6 +35,7 @@
 #   Version 1.0 - Initial version - March 2016
 #   Version 1.1 - Add custom artifact/attributes - August 28th 2016
 #   version 1.2 - Add check to see if any event logs were selected, if not error out gracefully and submit message.
+#   version 1.3 - Add Long Tail Extracted view and change event log identifier to long value type
 
 import jarray
 import inspect
@@ -200,6 +201,13 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
                  artID_evtx = skCase.getArtifactTypeID("TSK_EVTX_LOGS")
      
             try:
+                 self.log(Level.INFO, "Begin Create New Artifacts")
+                 artID_evtx_Long = skCase.addArtifactType( "TSK_EVTX_LOGS_LONG", "Windows Event Logs Long Tail Analysis")
+            except:		
+                 self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
+                 artID_evtx_Long = skCase.getArtifactTypeID("TSK_EVTX_LOGS")
+
+            try:
                 attID_ev_fn = skCase.addArtifactAttributeType("TSK_EVTX_FILE_NAME", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event Log File Name")
             except:		
                  self.log(Level.INFO, "Attributes Creation Error, Event Log File Name. ==> ")
@@ -212,7 +220,7 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             except:		
                  self.log(Level.INFO, "Attributes Creation Error, Computer Name. ==> ")
             try:
-                attID_ev_ei = skCase.addArtifactAttributeType("TSK_EVTX_EVENT_IDENTIFIER", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event Identiifier")
+                attID_ev_ei = skCase.addArtifactAttributeType("TSK_EVTX_EVENT_IDENTIFIER", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Event Identiifier")
             except:		
                  self.log(Level.INFO, "Attributes Creation Error, Event Log File Name. ==> ")
             try:
@@ -252,10 +260,17 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             except:		
                  self.log(Level.INFO, "Attributes Creation Error, Event Detail. ==> ")
 
+            try:
+                attID_ev_cnt = skCase.addArtifactAttributeType("TSK_EVTX_EVENT_ID_COUNT", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, "Event Id Count")
+            except:		
+                 self.log(Level.INFO, "Attributes Creation Error, Event ID Count. ==> ")
+                 
             #self.log(Level.INFO, "Get Artifacts after they were created.")
             # Get the new artifacts and attributes that were just created
             artID_evtx = skCase.getArtifactTypeID("TSK_EVTX_LOGS")
             artID_evtx_evt = skCase.getArtifactType("TSK_EVTX_LOGS")
+            artID_evtx_Long = skCase.getArtifactTypeID("TSK_EVTX_LOGS_LONG")
+            artID_evtx_Long_evt = skCase.getArtifactType("TSK_EVTX_LOGS_LONG")
             attID_ev_fn = skCase.getAttributeType("TSK_EVTX_FILE_NAME")
             attID_ev_rc = skCase.getAttributeType("TSK_EVTX_RECOVERED_RECORD")			 
             attID_ev_cn = skCase.getAttributeType("TSK_EVTX_COMPUTER_NAME")			 
@@ -269,6 +284,7 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             attID_ev_et = skCase.getAttributeType("TSK_EVTX_EVENT_TIME")
             attID_ev_ete = skCase.getAttributeType("TSK_EVTX_EVENT_TIME_EPOCH")
             attID_ev_dt = skCase.getAttributeType("TSK_EVTX_EVENT_DETAIL_TEXT")
+            attID_ev_cnt = skCase.getAttributeType("TSK_EVTX_EVENT_ID_COUNT")
             
             #self.log(Level.INFO, "Artifact id for TSK_PREFETCH ==> " + str(artID_pf))
             # self.log(Level.INFO, "Attribute id for TSK_EVTX_FILE_NAME ==> " + str(attID_ev_fn))
@@ -383,7 +399,7 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
                         #File_Name  = resultSet.getString("File_Name")
                         #Recovered_Record = resultSet.getString("Recovered_Record")
                         Computer_Name = resultSet.getString("Computer_Name")
-                        Event_Identifier = resultSet.getString("Event_Identifier")
+                        Event_Identifier = resultSet.getInt("Event_Identifier")
                         #Event_Identifier_Qualifiers = resultSet.getString("Event_Identifier_Qualifiers")
                         Event_Level = resultSet.getString("Event_Level")
                         #Event_Offset = resultSet.getString("Event_Offset")
@@ -414,12 +430,45 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
                     #art.addAttribute(BlackboardAttribute(attID_ev_oif, ParseEvtxDbIngestModuleFactory.moduleName, Event_Offset))
                     #art.addAttribute(BlackboardAttribute(attID_ev_id, ParseEvtxDbIngestModuleFactory.moduleName, Identifier))
                     #art.addAttribute(BlackboardAttribute(attID_ev_ete, ParseEvtxDbIngestModuleFactory.moduleName, Event_Time_Epoch))
+
+                try:
+                    stmt_1 = dbConn.createStatement()
+                    SQL_Statement_1 = "select event_identifier, file_name, count(*) 'Number_Of_Events'  " + \
+                                    " FROM Event_Logs where upper(File_Name) = upper('" + file_name + "')" + \
+                                    " group by event_identifier, file_name order by 3;"
+                    #self.log(Level.INFO, "SQL Statement " + SQL_Statement_1 + "  <<=====")
+                    resultSet_1 = stmt_1.executeQuery(SQL_Statement_1)
+                except SQLException as e:
+                    self.log(Level.INFO, "Error querying database for EventLogs table (" + e.getMessage() + ")")
+                    return IngestModule.ProcessResult.OK
+
+                # Cycle through each row and create artifacts
+                while resultSet_1.next():
+                    try: 
+                        #File_Name  = resultSet.getString("File_Name")
+                        #Recovered_Record = resultSet.getString("Recovered_Record")
+                        Event_Identifier = resultSet_1.getInt("Event_Identifier")
+                        Event_ID_Count = resultSet_1.getInt("Number_Of_Events")
+                    except SQLException as e:
+                        self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
+            
+                    # Make an artifact on the blackboard, TSK_PROG_RUN and give it attributes for each of the fields
+                    # Make artifact for TSK_EVTX_LOGS
+                    art_1 = file.newArtifact(artID_evtx_Long)
+                    
+                    self.log(Level.INFO, "Type of Object is ==> " + str(type(Event_ID_Count)))
+
+                    art_1.addAttributes(((BlackboardAttribute(attID_ev_ei, ParseEvtxDbIngestModuleFactory.moduleName, Event_Identifier)), \
+                                       (BlackboardAttribute(attID_ev_cnt, ParseEvtxDbIngestModuleFactory.moduleName, Event_ID_Count))))
                 
             # Fire an event to notify the UI and others that there are new artifacts  
             IngestServices.getInstance().fireModuleDataEvent(
                 ModuleDataEvent(ParseEvtxDbIngestModuleFactory.moduleName, artID_evtx_evt, None))
+            IngestServices.getInstance().fireModuleDataEvent(
+                ModuleDataEvent(ParseEvtxDbIngestModuleFactory.moduleName, artID_evtx_Long_evt, None))
                     
             # Clean up
+            stmt_1.close()
             stmt.close()
             dbConn.close()
             os.remove(lclDbPath)
