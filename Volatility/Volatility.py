@@ -36,6 +36,8 @@
 #   Version 1.1 - Fix code so that it will parse the imageinfo when it is returned properly,
 #                 Add code to check when autodetect is selected and if the profile has been saved
 #                 then read it from the database.
+#   Version 1.2 - Added code so if a plugin is rerun then do not add it back into Autopsy.  It will
+#                 create double entries in the SQLite database that Volatility creates/maintains.
 # 
 
 import jarray
@@ -103,7 +105,7 @@ class VolatilityIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Run Volatility against a Memory Image"
     
     def getModuleVersionNumber(self):
-        return "1.1"
+        return "1.2"
     
     def getDefaultIngestJobSettings(self):
         return VolatilitySettingsWithUISettings()
@@ -240,15 +242,22 @@ class VolatilityIngestModule(DataSourceIngestModule):
                     dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
                 except SQLException as e:
                     self.log(Level.INFO, "Could not open database file (not SQLite) " + self.database_file + " (" + e.getMessage() + ")")
-                    return IngestModule.ProcessResult.OK
-                
+
+                try:
+                    exestmt = dbConn.createStatement()
+                    resultx = exestmt.execute('create table plugins_loaded_to_Autopsy (table_name text);')
+                except SQLException as e:
+                    self.log(Level.INFO, "Could not create table plugins_loaded_to_autopsy")
+                    
                 # Query the database 
                 try:
                     stmt = dbConn.createStatement()
                     stmt2 = dbConn.createStatement()
                     stmt3 = dbConn.createStatement()
                     stmt4 = dbConn.createStatement()
-                    resultSet1 = stmt.executeQuery("Select upper(tbl_name) tbl_name from SQLITE_MASTER;")
+                    resultSet1 = stmt.executeQuery("Select upper(tbl_name) tbl_name from SQLITE_MASTER where upper(tbl_name) " \
+                                                   " not in (select table_name from plugins_loaded_to_Autopsy)" \
+                                                   " and upper(tbl_name) <> 'PLUGINS_LOADED_TO_AUTOPSY';")
                     # Cycle through each row and create artifacts
                     while resultSet1.next():
                         try:
@@ -345,6 +354,12 @@ class VolatilityIngestModule(DataSourceIngestModule):
                                     
                         except SQLException as e:
                                self.log(Level.INFO, "Error getting values from table " +  resultSet.getString("tbl_name") + " (" + e.getMessage() + ")")
+                        try:
+#                            exestmt = createStatement()
+                            resultx = exestmt.execute("insert into plugins_loaded_to_Autopsy values ('" + table_name + "');")
+                        except SQLException as e:
+                            self.log(Level.INFO, "Could not create table plugins_loaded_to_autopsy")
+
                 except SQLException as e:
                        self.log(Level.INFO, "Error querying database " + file.getName() + " (" + e.getMessage() + ")")
 
@@ -460,12 +475,19 @@ class VolatilityIngestModule(DataSourceIngestModule):
                            
                     except:
                        self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
+                try:
+                    exestmt = dbConn.createStatement()
+                    resultx = exestmt.execute('create table plugins_loaded_to_Autopsy (table_name text);')
+                except SQLException as e:
+                    self.log(Level.INFO, "Could not create table plugins_loaded_to_autopsy")
+                    return IngestModule.ProcessResult.OK
+            
             except SQLException as e:
                self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
-               return IngestModule.ProcessResult.OK
 
             try:
                  stmt.close()
+                 exestmt.close()
                  dbConn.close()
                  #os.remove(database_name)		
             except:
