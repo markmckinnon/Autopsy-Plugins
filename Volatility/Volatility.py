@@ -33,6 +33,9 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - April 2017
+#   Version 1.1 - Fix code so that it will parse the imageinfo when it is returned properly,
+#                 Add code to check when autodetect is selected and if the profile has been saved
+#                 then read it from the database.
 # 
 
 import jarray
@@ -100,7 +103,7 @@ class VolatilityIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Run Volatility against a Memory Image"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.1"
     
     def getDefaultIngestJobSettings(self):
         return VolatilitySettingsWithUISettings()
@@ -363,64 +366,110 @@ class VolatilityIngestModule(DataSourceIngestModule):
         base_file_name = os.path.splitext(file_name)[0]
         database_file = Temp_Dir + "\\" + base_file_name + ".db3"
         self.log(Level.INFO, "File Name ==> " + self.database_file)
+        found_profile = False
         
-        if self.Python_Program:
-            self.log(Level.INFO, "Running program ==> " + "Python " + self.Volatility_Executable + " -f " + image_file + " " + \
-                     " --output=sqlite --output-file=" + self.database_file + " imageinfo")
-            pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
-                   "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+        if os.path.isfile(self.database_file):
+            self.log(Level.INFO, "Path the volatility database file created ==> " + self.database_file)
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            # Query the database 
+            try:
+                stmt = dbConn.createStatement()
+                resultSet1 = stmt.executeQuery('Select "Suggested Profile(s)" from imageinfo')
+                self.log(Level.INFO, "query " + str(resultSet1))
+                # Cycle through each row and create artifacts
+                profile_names = None
+                while resultSet1.next():
+                    try:
+                       profile_names = resultSet1.getString("Suggested Profile(s)")
+                       if profile_names == None:
+                           self.Profile = None
+                       elif ',' in profile_names:
+                           profile_list = profile_names.split(",")
+                           self.Profile = profile_list[0]
+                       elif ' ' in profle_names:
+                           profile_list = profile_names.split(" ")
+                           self.Profile = profile_list[0]
+                       else:
+                           self.Profile = profile_names
+                       found_profile = True    
+                    except:
+                       self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
+            except SQLException as e:
+               self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+
+            try:
+                 stmt.close()
+                 dbConn.close()
+                 #os.remove(database_name)		
+            except:
+                 self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
+        
+        if found_profile:
+            pass
         else:
-            self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + image_file + " " + \
-                     " --output=sqlite --output-file=" + self.database_file + " imageinfo")
-            pipe = Popen([self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
-                   "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
-        
-        out_text = pipe.communicate()[0]
-        self.log(Level.INFO, "Output from run is ==> " + out_text)               
+            if self.Python_Program:
+                self.log(Level.INFO, "Running program ==> " + "Python " + self.Volatility_Executable + " -f " + image_file + " " + \
+                         " --output=sqlite --output-file=" + self.database_file + " imageinfo")
+                pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
+                       "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+            else:
+                self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + image_file + " " + \
+                         " --output=sqlite --output-file=" + self.database_file + " imageinfo")
+                pipe = Popen([self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
+                       "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+            
+            out_text = pipe.communicate()[0]
+            self.log(Level.INFO, "Output from run is ==> " + out_text)               
 
-        # Open the DB using JDBC
-        self.log(Level.INFO, "Path the volatility database file created ==> " + self.database_file)
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
-        except SQLException as e:
-            self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
-            return IngestModule.ProcessResult.OK
-        
-        # Query the database 
-        try:
-            stmt = dbConn.createStatement()
-            resultSet1 = stmt.executeQuery('Select "Suggested Profile(s)" from imageinfo')
-            self.log(Level.INFO, "query SQLite Master table ==> " )
-            self.log(Level.INFO, "query " + str(resultSet1))
-            # Cycle through each row and create artifacts
-            profile_names = None
-            while resultSet1.next():
-                try:
-                   profile_names = resultSet1.getString("Suggested Profile(s)")
-                   if profile_names == None:
-                       self.Profile = None
-                   elif ',' in profile_names:
-                       profile_list = profile_names.split(",")
-                       self.Profile = profile_list[0]
-                   elif ' ' in profle_names:
-                       profile_list = profile_names.split(",")
-                       self.Profile = profile_list[0]
-                   else:
-                       self.Profile = profile_names
-                       
-                except:
-                   self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
-        except SQLException as e:
-           self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
-           return IngestModule.ProcessResult.OK
+            # Open the DB using JDBC
+            self.log(Level.INFO, "Path the volatility database file created ==> " + self.database_file)
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            # Query the database 
+            try:
+                stmt = dbConn.createStatement()
+                resultSet1 = stmt.executeQuery('Select "Suggested Profile(s)" from imageinfo')
+                self.log(Level.INFO, "query SQLite Master table ==> " )
+                self.log(Level.INFO, "query " + str(resultSet1))
+                # Cycle through each row and create artifacts
+                profile_names = None
+                while resultSet1.next():
+                    try:
+                       profile_names = resultSet1.getString("Suggested Profile(s)")
+                       if profile_names == None:
+                           self.Profile = None
+                       elif ',' in profile_names:
+                           profile_list = profile_names.split(",")
+                           self.Profile = profile_list[0]
+                       elif ' ' in profle_names:
+                           profile_list = profile_names.split(" ")
+                           self.Profile = profile_list[0]
+                       else:
+                           self.Profile = profile_names
+                           
+                    except:
+                       self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
+            except SQLException as e:
+               self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
+               return IngestModule.ProcessResult.OK
 
-        try:
-             stmt.close()
-             dbConn.close()
-             #os.remove(database_name)		
-        except:
-		     self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
+            try:
+                 stmt.close()
+                 dbConn.close()
+                 #os.remove(database_name)		
+            except:
+                 self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
    
            
 # Stores the settings that can be changed for each ingest job
