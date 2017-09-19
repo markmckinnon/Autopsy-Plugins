@@ -34,6 +34,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - July 2017
+#   Version 1.1 - Added code so if run again it will not readd any thumbs that already exist
 # 
 
 import jarray
@@ -85,7 +86,7 @@ class ThumbsIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Extract Content Fron Thumbs.db Files"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.1"
     
     def hasIngestJobSettingsPanel(self):
         return False
@@ -134,7 +135,7 @@ class ThumbsIngestModule(DataSourceIngestModule):
         progressBar.switchToIndeterminate()
         
        # Set the database to be read to the once created by the prefetch parser program
-        skCase = Case.getCurrentCase().getSleuthkitCase();
+        skCase = Case.getCurrentCase().getSleuthkitCase()
         fileManager = Case.getCurrentCase().getServices().getFileManager()
         thumb_files = fileManager.findFiles(dataSource, "thumbs.db", "")
         numFiles = len(thumb_files)
@@ -186,13 +187,17 @@ class ThumbsIngestModule(DataSourceIngestModule):
                 self.log(Level.INFO, " Dev File Name is ==> " + dev_file)
                 self.log(Level.INFO, " Local File Name is ==> " + local_file)
                 
-                # Add dervived file
-                # Parameters Are:
-                #    File Name, Local Path, size, ctime, crtime, atime, mtime, isFile, Parent File, rederive Details, Tool Name, 
-                #     Tool Version, Other Details, Encoding Type
-                dervived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
-                                         0, 0, 0, 0, True, abstract_file_info, "", "thumb_viewer", "1.0.2.6", "", TskData.EncodingType.NONE)
-                #self.log(Level.INFO, "Derived File ==> " + str(dervived_file))
+                if not(self.check_dervived_existance(dataSource, file, abstract_file_info)):
+                
+                    # Add dervived file
+                    # Parameters Are:
+                    #    File Name, Local Path, size, ctime, crtime, atime, mtime, isFile, Parent File, rederive Details, Tool Name, 
+                    #     Tool Version, Other Details, Encoding Type
+                    dervived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
+                                             0, 0, 0, 0, True, abstract_file_info, "", "thumb_viewer", "1.0.2.6", "", TskData.EncodingType.NONE)
+                    #self.log(Level.INFO, "Derived File ==> " + str(dervived_file))
+                else:
+                    pass                
         
         
             try:
@@ -207,4 +212,17 @@ class ThumbsIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 		
+         
+
+    def check_dervived_existance(self, dataSource, file_name, parent_file_abstract):
+
+        fileManager = Case.getCurrentCase().getServices().getFileManager()
+        dervived_file = fileManager.findFiles(dataSource, file_name, parent_file_abstract)
+        numFiles = len(dervived_file)
+    
+        if numFiles == 0:
+            return True
+        else:
+            return False
+
 
