@@ -35,6 +35,7 @@
 #   Version 1.0 - Initial version - April 2017
 #   Version 1.1 - Add code that will import the dumped files as derived files under the memory image.
 #                 Fix the code when imageinfo is selected.
+#   Version 1.2 - Fix spelling error for dervived file to derived.  More code clean needed
 # 
 
 import jarray
@@ -76,6 +77,7 @@ from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
+from org.sleuthkit.autopsy.ingest import IngestJobContext
 from org.sleuthkit.autopsy.ingest import IngestServices
 from org.sleuthkit.autopsy.ingest import ModuleDataEvent
 from org.sleuthkit.autopsy.ingest import ModuleContentEvent
@@ -103,7 +105,7 @@ class VolatilityDumpIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Dump Files Using Volatility against a Memory Image"
     
     def getModuleVersionNumber(self):
-        return "1.1"
+        return "1.2"
     
     def getDefaultIngestJobSettings(self):
         return VolatilitySettingsWithUISettings()
@@ -139,6 +141,7 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         self.Process_Ids_To_Dump = ""
         self.Python_Program = False
         self.Volatility_Version = ""
+        self.List_df = []
 
     # Where any setup and configuration is done
     # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
@@ -171,8 +174,6 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         self.log(Level.INFO, "Additional Parms ==> " + str(self.Process_Ids_To_Dump) + "<<")
         self.log(Level.INFO, "Additional Parms ==> " + Pids + "<<")
         
-        # Create path to plaso storage file
-        
         # Check to see if the file to execute exists, if it does not then raise an exception and log error
         # data is taken from the UI
         if 'vol.py' in self.Volatility_Executable:
@@ -201,10 +202,10 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         try:
 		    os.mkdir(Temp_Dir + "\Volatility\\Dump-Files")
         except:
-		    self.log(Level.INFO, "Plaso Import Directory already exists " + Temp_Dir)
-
+		    self.log(Level.INFO, "Volatility Directory already exists " + Temp_Dir)
+        self.log(Level.INFO, "Volatility Directory already exists " + str(dataSource.getId()))
         # Set the database to be read to the once created by the prefetch parser program
-        skCase = Case.getCurrentCase().getSleuthkitCase();
+        skCase = Case.getCurrentCase().getSleuthkitCase()
         fileManager = Case.getCurrentCase().getServices().getFileManager()
         files = fileManager.findFiles(dataSource, "%", "/")
         numFiles = len(files)
@@ -212,80 +213,85 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         #file_name = os.path.basename(self.path_to_storage_file)
         #self.log(Level.INFO, "File Name ==> " + file_name)
         #base_file_name = os.path.splitext(file_name)[0]
-        #self.database_file = Temp_Dir + "\\volatility\\Plaso.db3"
+        
         for file in files:
-            self.log(Level.INFO, "File name to process is ==> " + str(file))
-            self.log(Level.INFO, "File name to process is ==> " + str(file.getLocalAbsPath()))
-
-            mem_abstract_file_info = skCase.getAbstractFileById(file.getId())
-
-            image_file = file.getLocalAbsPath()
-            if image_file != None:
+            if '/LogicalFileSet1/' == file.parentPath:
+                self.log(Level.INFO, "File name to process is ==> " + str(file))
                 self.log(Level.INFO, "File name to process is ==> " + str(file.getLocalAbsPath()))
-                # file_name = os.path.basename(file.getLocalAbsPath())
-                # self.log(Level.INFO, "File Name ==> " + file_name)
-                # base_file_name = os.path.splitext(file_name)[0]
-                # self.database_file = Temp_Dir + "\\volatility\\" + base_file_name + ".db3"
-                # self.log(Level.INFO, "File Name ==> " + self.database_file)
-                dervived_dir = "ModuleOutput\\volatility\\Dump-Files\\"
-                dump_file = Temp_Dir + "\\volatility\\Dump-Files"
-                if self.isAutodetect:
-                    self.find_profile(image_file)
-                if self.Profile == None:
-                    continue
-                for plugin_to_run in self.Plugins:
-                    plugin_dir = os.path.join(dump_file, plugin_to_run)
-                    try:
-                        os.mkdir(plugin_dir)
-                    except:
-                        pass
-                    if self.Python_Program:    
-                        if self.Process_Ids_To_Dump == "":
-                            new_dervived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, dervived_dir)
-                            self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
-                                 "--profile=" + self.Profile + " --dump-dir=" + plugin_dir + " " + plugin_to_run)
-                            pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, \
-                               "--dump-dir=" + plugin_dir, plugin_to_run], stdout=PIPE, stderr=PIPE)
-                            self.add_Volatility_Dump_file(dataSource, new_dervived_dir, plugin_dir, dervived_dir + "\\" + plugin_to_run)
-                        else:
-                            for pid_to_run in self.Process_Ids_To_Dump:
-                                new_dervived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, dervived_dir)                        
-                                pid_dir = os.path.join(plugin_dir, pid_to_run.lstrip())
-                                try:
-                                    os.mkdir(pid_dir)
-                                except:
-                                    pass
-                                new_dervived_dir_pid = self.add_Volatility_Dump_dir(dataSource, new_dervived_dir, pid_dir, pid_to_run.lstrip(), dervived_dir + "\\" + plugin_to_run)
+
+                mem_abstract_file_info = skCase.getAbstractFileById(file.getId())
+
+                image_file = file.getLocalAbsPath()
+                if image_file != None:
+                    self.log(Level.INFO, "File name to process is ==> " + str(file.getLocalAbsPath()))
+                    file_name = os.path.basename(file.getLocalAbsPath())
+                    base_file_name = os.path.splitext(file_name)[0]
+                    self.database_file = Temp_Dir + "\\volatility\\" + base_file_name + ".db3"
+                    # self.log(Level.INFO, "File Name ==> " + self.database_file)
+                    derived_dir = "ModuleOutput\\volatility\\Dump-Files\\"
+                    dump_file = Temp_Dir + "\\volatility\\Dump-Files"
+                    if self.isAutodetect:
+                        self.find_profile(image_file)
+                    if self.Profile == None:
+                        continue
+                    for plugin_to_run in self.Plugins:
+                        plugin_dir = os.path.join(dump_file, plugin_to_run)
+                        try:
+                            os.mkdir(plugin_dir)
+                        except:
+                            pass
+                        if self.Python_Program:    
+                            if self.Process_Ids_To_Dump == "":
+                                new_derived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, derived_dir)
                                 self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
-                                     "--profile=" + self.Profile + " --dump-dir=" + pid_dir + " --pid=" + pid_to_run.lstrip() + " " + plugin_to_run)
+                                     "--profile=" + self.Profile + " --dump-dir=" + plugin_dir + " " + plugin_to_run)
                                 pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, \
-                                   "--dump-dir=" + pid_dir, "--pid=" + pid_to_run.lstrip(), plugin_to_run], stdout=PIPE, stderr=PIPE)
-                                self.add_Volatility_Dump_file(dataSource, new_dervived_dir_pid, pid_dir, dervived_dir + "\\" + plugin_to_run + "\\" + pid_to_run.lstrip(), pid_to_run.lstrip())
-                    else:
-                        if self.Process_Ids_To_Dump == "":
-                            new_dervived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, dervived_dir)
-                            self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
-                                 "--profile=" + self.Profile + " --dump-dir=" + plugin_dir + " " + plugin_to_run)
-                            pipe = Popen([self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, \
-                                 "--dump-dir=" + plugin_dir, plugin_to_run], stdout=PIPE, stderr=PIPE)
-                            self.add_Volatility_Dump_file(dataSource, new_dervived_dir, plugin_dir, dervived_dir + "\\" + plugin_to_run, " ")
-                        else:            
-                            for pid_to_run in self.Process_Ids_To_Dump:
-                                new_dervived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, dervived_dir)                        
-                                pid_dir = os.path.join(plugin_dir, pid_to_run.lstrip())
-                                try:
-                                    os.mkdir(pid_dir)
-                                except:
-                                    pass
-                                new_dervived_dir_pid = self.add_Volatility_Dump_dir(dataSource, new_dervived_dir, plugin_dir, pid_to_run.lstrip(), dervived_dir + "\\" + plugin_to_run)
+                                   "--dump-dir=" + plugin_dir, plugin_to_run], stdout=PIPE, stderr=PIPE)
+                                out_text = pipe.communicate()[0]
+                                self.log(Level.INFO, "Output from run is ==> " + out_text)               
+                                self.add_Volatility_Dump_file(dataSource, new_derived_dir, plugin_dir, derived_dir + "\\" + plugin_to_run)
+                            else:
+                                for pid_to_run in self.Process_Ids_To_Dump:
+                                    new_derived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, derived_dir)                        
+                                    pid_dir = os.path.join(plugin_dir, pid_to_run.lstrip())
+                                    try:
+                                        os.mkdir(pid_dir)
+                                    except:
+                                        pass
+                                    new_derived_dir_pid = self.add_Volatility_Dump_dir(dataSource, new_derived_dir, pid_dir, pid_to_run.lstrip(), derived_dir + "\\" + plugin_to_run)
+                                    self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
+                                         "--profile=" + self.Profile + " --dump-dir=" + pid_dir + " --pid=" + pid_to_run.lstrip() + " " + plugin_to_run)
+                                    pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, \
+                                       "--dump-dir=" + pid_dir, "--pid=" + pid_to_run.lstrip(), plugin_to_run], stdout=PIPE, stderr=PIPE)
+                                    out_text = pipe.communicate()[0]
+                                    self.log(Level.INFO, "Output from run is ==> " + out_text)               
+                                    self.add_Volatility_Dump_file(dataSource, new_derived_dir_pid, pid_dir, derived_dir + "\\" + plugin_to_run + "\\" + pid_to_run.lstrip(), pid_to_run.lstrip())
+                        else:
+                            if self.Process_Ids_To_Dump == "":
+                                new_derived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, derived_dir)
                                 self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
-                                     "--profile=" + self.Profile + " --dump-dir=" + pid_dir + " --pid=" + pid_to_run.lstrip() + " " + plugin_to_run)
+                                     "--profile=" + self.Profile + " --dump-dir=" + plugin_dir + " " + plugin_to_run)
                                 pipe = Popen([self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, \
-                                     "--dump-dir=" + pid_dir, "--pid=" + pid_to_run.lstrip(), plugin_to_run], stdout=PIPE, stderr=PIPE)
-                                self.add_Volatility_Dump_file(dataSource, new_dervived_dir_pid, pid_dir, dervived_dir + "\\" + plugin_to_run + "\\" + pid_to_run.lstrip(), pid_to_run.lstrip())
-                    
-                    out_text = pipe.communicate()[0]
-                    self.log(Level.INFO, "Output from run is ==> " + out_text)               
+                                     "--dump-dir=" + plugin_dir, plugin_to_run], stdout=PIPE, stderr=PIPE)
+                                out_text = pipe.communicate()[0]
+                                self.log(Level.INFO, "Output from run is ==> " + out_text)               
+                                self.add_Volatility_Dump_file(dataSource, new_derived_dir, plugin_dir, derived_dir + "\\" + plugin_to_run, " ")
+                            else:            
+                                for pid_to_run in self.Process_Ids_To_Dump:
+                                    new_derived_dir = self.add_Volatility_Dump_dir(dataSource, mem_abstract_file_info, dump_file, plugin_to_run, derived_dir)                        
+                                    pid_dir = os.path.join(plugin_dir, pid_to_run.lstrip())
+                                    try:
+                                        os.mkdir(pid_dir)
+                                    except:
+                                        pass
+                                    new_derived_dir_pid = self.add_Volatility_Dump_dir(dataSource, new_derived_dir, plugin_dir, pid_to_run.lstrip(), derived_dir + "\\" + plugin_to_run)
+                                    self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
+                                         "--profile=" + self.Profile + " --dump-dir=" + pid_dir + " --pid=" + pid_to_run.lstrip() + " " + plugin_to_run)
+                                    pipe = Popen([self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, \
+                                         "--dump-dir=" + pid_dir, "--pid=" + pid_to_run.lstrip(), plugin_to_run], stdout=PIPE, stderr=PIPE)
+                                    out_text = pipe.communicate()[0]
+                                    self.log(Level.INFO, "Output from run is ==> " + out_text)               
+                                    self.add_Volatility_Dump_file(dataSource, new_derived_dir_pid, pid_dir, derived_dir + "\\" + plugin_to_run + "\\" + pid_to_run.lstrip(), pid_to_run.lstrip())
 
                 
         # After all databases, post a message to the ingest messages in box.
@@ -304,66 +310,113 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         file_name = os.path.basename(image_file)
         self.log(Level.INFO, "File Name ==> " + file_name)
         base_file_name = os.path.splitext(file_name)[0]
-        database_file = Temp_Dir + "\\" + base_file_name + ".db3"
+        #database_file = Temp_Dir + "\\" + base_file_name + ".db3"
         self.log(Level.INFO, "File Name ==> " + self.database_file)
         
-        if self.Python_Program:
-            self.log(Level.INFO, "Running program ==> " + "Python " + self.Volatility_Executable + " -f " + image_file + " " + \
-                     " --output=sqlite --output-file=" + self.database_file + " imageinfo")
-            pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
-                   "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+        found_profile = False
+        
+        if os.path.isfile(self.database_file):
+            self.log(Level.INFO, "Path the volatility database file created ==> " + self.database_file)
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + self.database_file + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            # Query the database 
+            try:
+                stmt = dbConn.createStatement()
+                resultSet1 = stmt.executeQuery('Select "Suggested Profile(s)" from imageinfo')
+                self.log(Level.INFO, "query " + str(resultSet1))
+                # Cycle through each row and create artifacts
+                profile_names = None
+                while resultSet1.next():
+                    try:
+                       profile_names = resultSet1.getString("Suggested Profile(s)")
+                       if profile_names == None:
+                           self.Profile = None
+                       elif ',' in profile_names:
+                           profile_list = profile_names.split(",")
+                           self.Profile = profile_list[0]
+                       elif ' ' in profle_names:
+                           profile_list = profile_names.split(" ")
+                           self.Profile = profile_list[0]
+                       else:
+                           self.Profile = profile_names
+                       found_profile = True    
+                    except:
+                       self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
+            except SQLException as e:
+               self.log(Level.INFO, "Could not open database file (not SQLite) " + self.database_file + " (" + e.getMessage() + ")")
+
+            try:
+                 stmt.close()
+                 dbConn.close()
+                 #os.remove(database_name)		
+            except:
+                 self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
+        
+        if found_profile:
+            pass
         else:
-            self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + image_file + " " + \
-                     " --output=sqlite --output-file=" + self.database_file + " imageinfo")
-            pipe = Popen([self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
-                   "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
-        
-        out_text = pipe.communicate()[0]
-        self.log(Level.INFO, "Output from run is ==> " + out_text)               
+            if self.Python_Program:
+                self.log(Level.INFO, "Running program ==> " + "Python " + self.Volatility_Executable + " -f " + image_file + " " + \
+                         " --output=sqlite --output-file=" + self.database_file + " imageinfo")
+                pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
+                       "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+            else:
+                self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + image_file + " " + \
+                         " --output=sqlite --output-file=" + self.database_file + " imageinfo")
+                pipe = Popen([self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
+                       "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+            
+            out_text = pipe.communicate()[0]
+            self.log(Level.INFO, "Output from run is ==> " + out_text)               
 
-        # Open the DB using JDBC
-        self.log(Level.INFO, "Path the volatility database file created ==> " + self.database_file)
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
-        except SQLException as e:
-            self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
-            return IngestModule.ProcessResult.OK
-        
-        # Query the database 
-        try:
-            stmt = dbConn.createStatement()
-            resultSet1 = stmt.executeQuery('Select "Suggested Profile(s)" from imageinfo')
-            self.log(Level.INFO, "query SQLite Master table ==> " )
-            self.log(Level.INFO, "query " + str(resultSet1))
-            # Cycle through each row and create artifacts
-            profile_names = None
-            while resultSet1.next():
-                try:
-                   profile_names = resultSet1.getString("Suggested Profile(s)")
-                   if profile_names == None:
-                       self.Profile = None
-                   elif ',' in profile_names:
-                       profile_list = profile_names.split(",")
-                       self.Profile = profile_list[0]
-                   elif ' ' in profle_names:
-                       profile_list = profile_names.split(" ")
-                       self.Profile = profile_list[0]
-                   else:
-                       self.Profile = profile_names
-                       
-                except:
-                   self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
-        except SQLException as e:
-           self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
-           return IngestModule.ProcessResult.OK
+            # Open the DB using JDBC
+            self.log(Level.INFO, "Path the volatility database file created ==> " + self.database_file)
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % self.database_file)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + self.database_file + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            # Query the database 
+            try:
+                stmt = dbConn.createStatement()
+                resultSet1 = stmt.executeQuery('Select "Suggested Profile(s)" from imageinfo')
+                self.log(Level.INFO, "query SQLite Master table ==> " )
+                self.log(Level.INFO, "query " + str(resultSet1))
+                # Cycle through each row and create artifacts
+                profile_names = None
+                while resultSet1.next():
+                    try:
+                       profile_names = resultSet1.getString("Suggested Profile(s)")
+                       if profile_names == None:
+                           self.Profile = None
+                       elif ',' in profile_names:
+                           profile_list = profile_names.split(",")
+                           self.Profile = profile_list[0]
+                       elif ' ' in profle_names:
+                           profile_list = profile_names.split(" ")
+                           self.Profile = profile_list[0]
+                       else:
+                           self.Profile = profile_names
+                           
+                    except:
+                       self.log(Level.INFO, "Error getting profile name, Profile name is ==> " + profile_names + " <==")
+            except SQLException as e:
+               self.log(Level.INFO, "Could not open database file (not SQLite) " + self.database_file + " (" + e.getMessage() + ")")
+               return IngestModule.ProcessResult.OK
 
-        try:
-             stmt.close()
-             dbConn.close()
-             #os.remove(database_name)		
-        except:
-		     self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
+            try:
+                 stmt.close()
+                 dbConn.close()
+                 #os.remove(database_name)		
+            except:
+                 self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
    
     def add_Volatility_Dump_dir(self, dataSource, dir_abstract_file_info, dump_dir, dir_name, local_dir):
     
@@ -375,31 +428,30 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         
         dev_file = os.path.join(dump_dir, dir_name)
         local_file = os.path.join(local_dir, dir_name)
-        self.log(Level.INFO, " Dev dir Name is ==> " + dev_file)
-        self.log(Level.INFO, " Local dir Name is ==> " + local_file)
         
-        if not(self.check_dervived_existance(dataSource, dir_name, dir_abstract_file_info.parentPath)):
+        if not(self.check_derived_existance(dataSource, dir_name, dir_abstract_file_info.parentPath)):
         
-            # Add dervived file
+            # Add derived file
             # Parameters Are:
             #    File Name, Local Path, size, ctime, crtime, atime, mtime, isFile, Parent File, rederive Details, Tool Name, 
             #     Tool Version, Other Details, Encoding Type
-            dervived_file = skCase.addDerivedFile(dir_name, local_file, os.path.getsize(dev_file), + \
+            derived_file = skCase.addDerivedFile(dir_name, local_file, os.path.getsize(dev_file), + \
                                      0, 0, 0, 0, True, dir_abstract_file_info, "", "Volatility", self.Volatility_Version, "", TskData.EncodingType.NONE)
-            self.log(Level.INFO, "Derived File ==> " + str(dervived_file))
-            IngestServices.getInstance().fireModuleContentEvent(ModuleContentEvent(dervived_file))
+            IngestServices.getInstance().fireModuleContentEvent(ModuleContentEvent(derived_file))
+#            self.context.addFilesToJob(df_list)
+            #self.log(Level.INFO, "Derived File ==> " + str(derived_file))
         else:
             pass                
 
-        #self.log(Level.INFO, " Dervived File Is ==> " + str(dervived_file))
+        #self.log(Level.INFO, " derived File Is ==> " + str(derived_file))
         
         fileManager = Case.getCurrentCase().getServices().getFileManager()
-        new_dervived_file = fileManager.findFiles(dataSource, dir_name, dir_abstract_file_info.parentPath)
-        numFiles = len(new_dervived_file)
+        new_derived_file = fileManager.findFiles(dataSource, dir_name, dir_abstract_file_info.parentPath)
+        numFiles = len(new_derived_file)
     
         self.log(Level.INFO, " print number of files is " + str(numFiles))
         
-        for file in new_dervived_file:
+        for file in new_derived_file:
             self.log(Level.INFO, "File Exists ==> " + str(file))
             self.log(Level.INFO, "Local Directory ==> " + str(file.localPath))
             self.log(Level.INFO, "Local Directory ==> " + local_file)
@@ -407,8 +459,8 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
                 self.log(Level.INFO, "File Exists ==> " + str(file))
                 return file
                 
-        self.log(Level.INFO, "File Exists2 ==> " + str(new_dervived_file[0]))        
-        return new_dervived_file[0]
+        self.log(Level.INFO, "File Exists2 ==> " + str(new_derived_file[0]))   
+        return new_derived_file[0]
 
     def add_Volatility_Dump_file(self, dataSource, dir_abstract_file_info, dump_dir, local_dir, pid_name):
     
@@ -418,7 +470,8 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         self.log(Level.INFO, "Local Directory is ==> " + local_dir)
         self.log(Level.INFO, "Parent Path is ==> " + str(dir_abstract_file_info))
                 
-        skCase = Case.getCurrentCase().getSleuthkitCase()
+        #skCase = Case.getCurrentCase().getSleuthkitCase()
+        skCase = Case.getCurrentCase().getServices().getFileManager()
         files = next(os.walk(dump_dir))[2]
         for file in files:
             self.log(Level.INFO, " File Name is ==> " + file)
@@ -428,33 +481,32 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
             self.log(Level.INFO, " Dev File Name is ==> " + dev_file)
             self.log(Level.INFO, " Local File Name is ==> " + local_file)
             
-            if not(self.check_dervived_existance(dataSource, file, dir_abstract_file_info.parentPath)):
+            if not(self.check_derived_existance(dataSource, file, dir_abstract_file_info.parentPath)):
             
-                # Add dervived file
+                # Add derived file
                 # Parameters Are:
                 #    File Name, Local Path, size, ctime, crtime, atime, mtime, isFile, Parent File, rederive Details, Tool Name, 
                 #     Tool Version, Other Details, Encoding Type
-                dervived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
+                derived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
                                          0, 0, 0, 0, True, dir_abstract_file_info, "", "Volatility", self.Volatility_Version, "", TskData.EncodingType.NONE)
-                IngestServices.getInstance().fireModuleContentEvent(ModuleContentEvent(dervived_file))
-                #self.log(Level.INFO, "Derived File ==> " + str(dervived_file))
+                    IngestServices.getInstance().fireModuleContentEvent(ModuleContentEvent(derived_file))
+                #self.log(Level.INFO, "Derived File ==> " + str(derived_file))
             else:
                 pass                
-
     
-    def check_dervived_existance(self, dataSource, file_name, parent_file_path):
+    def check_derived_existance(self, dataSource, file_name, parent_file_path):
 
         self.log(Level.INFO, "File Name is ==> " + str(file_name) + "  <==> Parent File Dir ==> " + str(parent_file_path))
         
         fileManager = Case.getCurrentCase().getServices().getFileManager()
-        dervived_file = fileManager.findFiles(dataSource, file_name, parent_file_path)
-        numFiles = len(dervived_file)
+        derived_file = fileManager.findFiles(dataSource, file_name, parent_file_path)
+        numFiles = len(derived_file)
     
         if numFiles == 0:
             self.log(Level.INFO, "File Does Not Exists ==> " + str(file_name))
             return False
         else:
-            for file in dervived_file:
+            for file in derived_file:
                 self.log(Level.INFO, "File Exists ==> " + str(file_name))
                 if parent_file_path == file.parentPath:
                     self.log(Level.INFO, "File Exists ==> " + str(file_name))
@@ -462,7 +514,24 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
             self.log(Level.INFO, "File Does Not Exists ==> " + str(file_name))
             return False
 
-            
+    # def get_abstract_file(self, dataSource, file_name, dir_name):
+
+        # fileManager = Case.getCurrentCase().getServices().getFileManager()
+        # abstract_files = fileManager.findFiles(dataSource, file_name, dir_name)
+        # numFiles = len(abstract_files)
+        # asf_list = []
+    
+        # self.log(Level.INFO, " print number of files is " + str(numFiles))
+        
+        # for file in abstract_files:
+            # self.log(Level.INFO, "File Exists ==> " + str(dir_name) + " Parent Path ==> " + file.parentPath)
+            # if dir_name == file.parentPath:
+                # self.log(Level.INFO, "File Exists ==> " + str(file))
+                # return asf_list.append(file)
+                
+        # self.log(Level.INFO, "File Exists2 ==> " + str(file))   
+        # return None
+        
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
 # TODO: Rename this class
@@ -654,7 +723,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
  
         try:
            stmt = dbConn.createStatement()
-           SQL_Statement = "select profile_name from profiles where volatility_version = '" + self.Version_CB.getSelectedItem() + "';" 
+           SQL_Statement = "select profile_name from profiles where volatility_version = '" + self.Version_CB.getSelectedItem() + "' order by 1;" 
            resultSet = stmt.executeQuery(SQL_Statement)
            profile_list = []
            while resultSet.next():
