@@ -489,7 +489,7 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
                 #     Tool Version, Other Details, Encoding Type
                 derived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
                                          0, 0, 0, 0, True, dir_abstract_file_info, "", "Volatility", self.Volatility_Version, "", TskData.EncodingType.NONE)
-                    IngestServices.getInstance().fireModuleContentEvent(ModuleContentEvent(derived_file))
+                IngestServices.getInstance().fireModuleContentEvent(ModuleContentEvent(derived_file))
                 #self.log(Level.INFO, "Derived File ==> " + str(derived_file))
             else:
                 pass                
