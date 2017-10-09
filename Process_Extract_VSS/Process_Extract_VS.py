@@ -326,7 +326,7 @@ class VSSIngesttModule(DataSourceIngestModule):
 
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
             "Process/Extract VS", " Volume Shadow has been analyzed " )
-        services.postMessage(message)
+        IngestServices.getInstance().postMessage(message)
 
         return IngestModule.ProcessResult.OK                
 		
