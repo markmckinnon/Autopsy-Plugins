@@ -218,7 +218,7 @@ class ThumbcacheIngestModule(DataSourceIngestModule):
         numFiles = len(dervived_file)
     
         if numFiles == 0:
-            return TRUE
+            return True
         else:
             return False
 
