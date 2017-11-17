@@ -33,6 +33,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - November 2017
+#   Version 1.1 - Put quotes around path for diskpart script and add exit to find empty drive letter
 # 
 
 import jarray
@@ -264,6 +265,7 @@ class Crt_Preview_Data_ContainertModule(DataSourceIngestModule):
                    pass
             except:
                 open_drive = chr(x) + ":"
+                break
             
         #open_drives = [ chr(x) + ": " for x in range(68,90) if not os.path.exists(chr(x) + ":") ]
         vdisk_script_dir = os.path.join(Case.getCurrentCase().getTempDirectory(), "vdisk_scripts")
@@ -279,7 +281,7 @@ class Crt_Preview_Data_ContainertModule(DataSourceIngestModule):
 
         # Create create, mount and format script
         vdc = open(vdisk_create_script, "w")
-        vdc.write("create vdisk file=" + vdisk_name + " maximum=" + str(size_of_disk) + " type=expandable \n")
+        vdc.write('create vdisk file="' + vdisk_name + '" maximum=' + str(size_of_disk) + " type=expandable \n")
         vdc.write("attach vdisk \n")
         vdc.write("create partition primary \n")
         vdc.write('format fs=ntfs label="Preview" quick \n')
@@ -288,13 +290,13 @@ class Crt_Preview_Data_ContainertModule(DataSourceIngestModule):
 
         # Create Mount script
         vdc = open(vdisk_mount_script, "w")
-        vdc.write("select vdisk file=" + vdisk_name + "\n")
+        vdc.write('select vdisk file="' + vdisk_name + '"\n')
         vdc.write("attach vdisk \n")
         vdc.close()
 
         # Create Unmount script
         vdc = open(vdisk_unmount_script, "w")
-        vdc.write("select vdisk file=" + vdisk_name + "\n")
+        vdc.write('select vdisk file="' + vdisk_name + '"\n')
         vdc.write("detach vdisk \n")
         vdc.close()
         return vdisk_create_script, vdisk_unmount_script, vdisk_mount_script, open_drive
