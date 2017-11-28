@@ -39,12 +39,12 @@ Export/Parse Mac recents.
 Export/Parse Mac OSX safari.  A SQLite database that contains the Safari information is created and then imported into the extracted view section of Autopsy.
 
 ### Parse PList
-Parse any plist and convert it toa SQLite database and then import the information into the extracted contant.
+Parse any plist and convert it to a SQLite database and then import the information into the extracted contant.
 
 ### SAM Parse
 Export SAM Registry Hive and then call the command line version of SAM Parse program.  A SQLite database that contains SAM information is created then imported into the extracted view section of Autopsy.
 
-### Parse SQLite DBs
+### [Parse SQLite DBs](./Parse_SQLite_Databases/README.md)
 Parse any SQLite files and import them into the extracted content section of Autopsy.
 
 ### Parse SQLite DB Del Records
@@ -94,6 +94,14 @@ Module will export the WebcacheV01 file and then call the command line version o
 
 ### Windows Internals
 Several windows plugins combined into one plugin.  You pick with checkboxes what you want it to do.
+
+## Linux Compatible Plugins 
+The following plugins are compatible on Linux systems.  Other plugins may work, but were designed to be run on Windows.  More Linux plugin support on the roadmap. 
+
+* Volatility Plugins
+* SQLite Plugins
+* Amazon Echosystem Plugins
+* Gui Test Plugins
 
 ## Other Resources
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
