@@ -107,4 +107,4 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
 
 ## Need Help?
-If you have any questions/comments/suggestions please let me know.  [Create an issue](https://github.com/markmckinnon/Autopsy-Plugins/issues/new)  Enjoy!
+If you have any questions/comments/suggestions please let me know.  [Create an issue](https://github.com/markmckinnon/Autopsy-Plugins/issues/new).  Enjoy!
