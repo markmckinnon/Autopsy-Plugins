@@ -20,10 +20,10 @@ Check the status of a [Cuckoo](https://cuckoosandbox.org/) server and submit fil
 ### Parse File History
 Export the Catalog1.edb file and then call the command line version of the Expor_FileHistory.  A sqlite database that contains the File History information is created and then imported into the extracted view section of Autopsy.
 
-### Gui Test
+### [Gui Test](./Gui_Test/README.md)
 Example of the different types of things you can do with the GUI portion of Autopsy Python Plugins.
 
-### Gui Test With Settings
+### [Gui Test With Settings](./Gui_Test_With_Settings/README.md)
 Example of the saving and retrieving of settings from the GUI of an Autopsy Python Plugin.
 
 ### Jump List AD
