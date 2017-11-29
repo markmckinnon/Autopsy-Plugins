@@ -20,10 +20,10 @@ Check the status of a [Cuckoo](https://cuckoosandbox.org/) server and submit fil
 ### Parse File History
 Export the Catalog1.edb file and then call the command line version of the Expor_FileHistory.  A sqlite database that contains the File History information is created and then imported into the extracted view section of Autopsy.
 
-### Gui Test
+### [Gui Test](./Gui_Test/README.md)
 Example of the different types of things you can do with the GUI portion of Autopsy Python Plugins.
 
-### Gui Test With Settings
+### [Gui Test With Settings](./Gui_Test_With_Settings/README.md)
 Example of the saving and retrieving of settings from the GUI of an Autopsy Python Plugin.
 
 ### Jump List AD
@@ -47,7 +47,7 @@ Export SAM Registry Hive and then call the command line version of SAM Parse pro
 ### [Parse SQLite DBs](./Parse_SQLite_Databases/README.md)
 Parse any SQLite files and import them into the extracted content section of Autopsy.
 
-### Parse SQLite DB Del Records
+### [Parse SQLite DB Del Records](./Parse_SQLite_Del_Records/README.md)
 Parse any SQLite databases and look for deleted records.  It will then create a SQLite database with the deleted records and then be imported into the extracted content section of Autopsy.
 
 ### Parse Shellbags
@@ -107,4 +107,4 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
 
 ## Need Help?
-If you have any questions/comments/suggestions please let me know.  [Create an issue](https://github.com/markmckinnon/Autopsy-Plugins/issues/new)  Enjoy!
+If you have any questions/comments/suggestions please let me know.  [Create an issue](https://github.com/markmckinnon/Autopsy-Plugins/issues/new).  Enjoy!
