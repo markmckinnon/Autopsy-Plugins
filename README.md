@@ -47,7 +47,7 @@ Export SAM Registry Hive and then call the command line version of SAM Parse pro
 ### [Parse SQLite DBs](./Parse_SQLite_Databases/README.md)
 Parse any SQLite files and import them into the extracted content section of Autopsy.
 
-### Parse SQLite DB Del Records
+### [Parse SQLite DB Del Records](./Parse_SQLite_Del_Records/README.md)
 Parse any SQLite databases and look for deleted records.  It will then create a SQLite database with the deleted records and then be imported into the extracted content section of Autopsy.
 
 ### Parse Shellbags
