@@ -34,6 +34,8 @@
 # Comments 
 #   Version 1.0 - Initial version - November 2017
 #   Version 1.1 - Put quotes around path for diskpart script and add exit to find empty drive letter
+#   Version 1.2 - Add try except block around creating and writing log file.
+#   version 1.3 - Add creation of csv file to MdouleOutput directory
 # 
 
 import jarray
@@ -86,7 +88,7 @@ class Crt_Preview_Data_ContainertModuleFactory(IngestModuleFactoryAdapter):
         return "Create Preview Data Container in ModuleOu"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.3"
     
     def hasIngestJobSettingsPanel(self):
         return False
@@ -175,9 +177,17 @@ class Crt_Preview_Data_ContainertModule(DataSourceIngestModule):
             self.log(Level.INFO, "Data source Directory already exists")        
         
         # Create log file for the number of extensions found
-        out_log_file = os.path.join(drive_letter + "\\", "File_Extensions_Written_Log_" + dataSource.getName() + ".csv")
-        out_log = open(out_log_file, "w")
-        out_log.write('Directory_In,File_Extension,Number_Of_Files_Written \n')
+        try:
+            mod_log_file = os.path.join(vdisk_dir, "File_Extensions_Written_Log_" + dataSource.getName() + ".csv")
+            self.log(Level.INFO, "Output Directory is ==> " + mod_log_file)
+            mod_log = open(mod_log_file, "w")
+            mod_log.write('Directory_In,File_Extension,Number_Of_Files_Written \n')
+            out_log_file = os.path.join(drive_letter + "\\", "File_Extensions_Written_Log_" + dataSource.getName() + ".csv")
+            self.log(Level.INFO, "Output Directory is ==> " + out_log_file)
+            out_log = open(out_log_file, "w")
+            out_log.write('Directory_In,File_Extension,Number_Of_Files_Written \n')
+        except:
+            self.log(Level.INFO, "Log File creation error")
 
         # Open the DB using JDBC
         try: 
@@ -208,8 +218,12 @@ class Crt_Preview_Data_ContainertModule(DataSourceIngestModule):
                 numFiles = len(files)
                 self.log(Level.INFO, "Number of files found for file extension " + resultSet.getString("File_Extension") + " ==> " + str(numFiles))
 
-                out_log.write(resultSet.getString('Output_Directory') + "," + resultSet.getString("File_Extension") + "," + str(numFiles) + "\n")
-                
+                try:
+                    mod_log.write(resultSet.getString('Output_Directory') + "," + resultSet.getString("File_Extension") + "," + str(numFiles) + "\n")
+                    out_log.write(resultSet.getString('Output_Directory') + "," + resultSet.getString("File_Extension") + "," + str(numFiles) + "\n")
+                except:
+                    self.log(Level.INFO, " Error Writing Log File ==> " + resultSet.getString('Output_Directory') + "," + resultSet.getString("File_Extension") + "," + str(numFiles) + "\n")
+                    
                 # Need to create log file here
                 
                 # Try and create directory to store files in, may already be created so we will ignore if it does
@@ -229,7 +243,11 @@ class Crt_Preview_Data_ContainertModule(DataSourceIngestModule):
                 self.log(Level.INFO, "Error in processing sql statement")
                    
         # Close the log file
-        out_log.close()        
+        try:
+            mod_log.close()
+            out_log.close()
+        except:
+            self.log(Level.INFO, "Error closing log files, they might not exist")        
 
         # Set the progress bar to unmounting
         progressBar.progress("Unmounting The Virtual Disk")
