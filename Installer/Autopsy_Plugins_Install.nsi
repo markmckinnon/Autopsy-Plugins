@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Autopsy_Python_Plugins"
-!define PRODUCT_VERSION "1.0"
+!define PRODUCT_VERSION "1.1"
 ;!define PRODUCT_PUBLISHER "Redwolf Computer Forensics"
 ;!define PRODUCT_WEB_SITE "http://RedWolfComputerForensics.com"
 ;!define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\MFT_Parser_Gui.exe"
@@ -398,12 +398,78 @@ Section "Windows Internals" SEC27
 
 SectionEnd
 
+Section "Create Preview Data Container" SEC28
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Create_Preview_Data_Container"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Create_Preview_Data_Container"
+  SetOverwrite try
+  File "..\Create_Preview_Data_Container\Create_DB_Script.sql"
+  File "..\Create_Preview_Data_Container\Create_Preview_Data_Container.py"
+  File "..\Create_Preview_Data_Container\Create_Preview_Data_Container_py_GPL_License.txt"
+  File "..\Create_Preview_Data_Container\File_Extensions.db3"
+
+SectionEnd
+  
+Section "Hash Images" SEC29
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\hash_images"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\hash_images"
+  SetOverwrite try
+  File "..\hash_images\hash_images.py"
+  File "..\hash_images\hash_images_py_GPL_License.txt"
+
+SectionEnd
+  
+Section "Process APPX Programs" SEC30
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_Appx_Programs"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_Appx_Programs"
+  SetOverwrite try
+  File "..\Process_Appx_Programs\Process_Appx_Programs.py"
+  File "..\Process_Appx_Programs\Process_Appx_Programs_py_GPL_License.txt"
+
+SectionEnd
+  
+Section "Process Facebook Chats" SEC31
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_Facebook_Chats"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_Facebook_Chats"
+  SetOverwrite try
+  File "..\Process_Facebook_Chats\Process_Facebook_Chats.py"
+  File "..\Process_Facebook_Chats\Process_Facebook_Chats_py_GPL_License.txt"
+  File "..\Process_Facebook_Chats\fb_chat.exe"
+  File "..\Process_Facebook_Chats\fb_chat_exe_GPL_License.txt"
+
+SectionEnd
+  
+Section "Process Windows Mail" SEC32
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_Windows_Mail"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_Windows_Mail"
+  SetOverwrite try
+  File "..\Process_Windows_Mail\Process_Windows_Mail.py"
+  File "..\Process_Windows_Mail\Process_Windows_Mail_py_GPL_License.txt"
+  File "..\Process_Windows_Mail\export_esedb.exe"
+  File "..\Process_Windows_Mail\export_esedb_exe_GPL_License.txt"
+  File "..\Process_Windows_Mail\export_esedb_records.exe"
+  File "..\Process_Windows_Mail\export_esedb_records_exe_GPL_License.txt"
+
+SectionEnd
+  
+Section "Spotlight Parser" SEC33
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Spotlight_Parser"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Spotlight_Parser"
+  SetOverwrite try
+  File "..\Spotlight_Parser\Spotlight_Parser.py"
+  File "..\Spotlight_Parser\Spotlight_Parser_py_GPL_License.txt"
+  File "..\Spotlight_Parser\Spotlight_Parser.exe"
+  File "..\Spotlight_Parser\Spotlight_Parser_exe_GPL_License.txt"
+
+SectionEnd
+  
 ; Section descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Amazon Echosystem Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC02} "CCM RecentlyUsedApps"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC28} "Create Preview Data Container"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC03} "Cuckoo"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC04} "File History"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC29} "Hash Images"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC05} "Jump_List_AD"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC06} "MacFSEvents"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC07} "MacOSX Recent"
@@ -416,12 +482,16 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC14} "Parse USNJ"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC15} "Plaso"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC16} "Process Amcache"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC30} "Process APPX Programs"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC17} "Process EVTX"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC18} "Process EVTX By EventID"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC19} "Process Extract VSS"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC31} "Process Facebook Chats"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC20} "Process Prefetch Files"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC21} "Process SRUDB"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC32} "Process Windows Mail"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC22} "Shimcache Parser"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC33} "Spotlight Parser"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC23} "Thumbcache Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC24} "Thumbs.db Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC25} "Volatility"
