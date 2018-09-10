@@ -1377,7 +1377,7 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                               self.log(Level.INFO, "Attributes Creation Error, " + resultSet2.getString("name") + " ==> ")
                       else:
                           try:
-                              attID_ex1 = skCase.addArtifactAttributeType("TSK_" + resultSet2.getString("name").upper(), BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, resultSet2.getString("name"))
+                              attID_ex1 = skCase.addArtifactAttributeType("TSK_" + resultSet2.getString("name").upper(), BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, resultSet2.getString("name"))
                           except:		
                               self.log(Level.INFO, "Attributes Creation Error, " + resultSet2.getString("name") + " ==> ")
 										 

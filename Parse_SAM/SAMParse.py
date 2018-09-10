@@ -232,7 +232,7 @@ class ParseSAMIngestModule(DataSourceIngestModule):
                               self.log(Level.INFO, "Attributes Creation Error, " + resultSet2.getString("name") + " ==> ")
                       else:
                           try:
-                              attID_ex1 = skCase.addArtifactAttributeType("TSK_" + resultSet2.getString("name").upper(), BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, resultSet2.getString("name"))
+                              attID_ex1 = skCase.addArtifactAttributeType("TSK_" + resultSet2.getString("name").upper(), BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, resultSet2.getString("name"))
                               #self.log(Level.INFO, "attribure id for " + "TSK_" + resultSet2.getString("name") + " == " + str(attID_ex1))
                           except:		
                               self.log(Level.INFO, "Attributes Creation Error, " + resultSet2.getString("name") + " ==> ")
@@ -261,18 +261,18 @@ class ParseSAMIngestModule(DataSourceIngestModule):
            stmt.close()
            dbConn.close()
 
-        os.remove(lclDbPath)
+#        os.remove(lclDbPath)
 			
 		#Clean up EventLog directory and files
-        for file in files:
-            try:
-			    os.remove(Temp_Dir + "\\SAM\\" + file.getName())
-            except:
-			    self.log(Level.INFO, "removal of SAM file failed " + Temp_Dir + "\\" + file.getName())
-        try:
-             os.rmdir(Temp_Dir + "\\SAM")		
-        except:
-		     self.log(Level.INFO, "removal of SAM directory failed " + Temp_Dir)
+#        for file in files:
+#            try:
+#			    os.remove(Temp_Dir + "\\SAM\\" + file.getName())
+#            except:
+#			    self.log(Level.INFO, "removal of SAM file failed " + Temp_Dir + "\\" + file.getName())
+#        try:
+#             os.rmdir(Temp_Dir + "\\SAM")		
+#        except:
+#		     self.log(Level.INFO, "removal of SAM directory failed " + Temp_Dir)
 
         # Fire an event to notify the UI and others that there are new artifacts  
         IngestServices.getInstance().fireModuleDataEvent(
