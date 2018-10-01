@@ -26,6 +26,9 @@ Example of the different types of things you can do with the GUI portion of Auto
 ### [Gui Test With Settings](./Gui_Test_With_Settings/README.md)
 Example of the saving and retrieving of settings from the GUI of an Autopsy Python Plugin.
 
+### Hash Images
+Hash raw, vmdk and vhdi images.  Like E01 hashing.
+
 ### Jump List AD
 Export the JumpList AutoDestinations and then call the command line version of the Export_JL_Ad program.  A SQLite database that contains the JumpList information is created and then imported into the extracted view section of Autopsy.
 
@@ -68,6 +71,15 @@ Export the Windows Event Logs and then call the command line version of the Expo
 ### Parse EVTX by Event ID
 Export all the Windows Event Logs and thenc all the command line version of the Export_EVTX program.  A SQLite database that conains the Event Log information is created then imported into the extracted view section of Autopsy as a Table based on Event_Log_Id.  the user can then run the module again and extract user supplied events from the Evtx SQLite database.
 
+### Process Appx Programs
+Parse the SQLite database that has the Windows 10 Store/metro apps database.
+
+### Process Appxreg Programs
+Parse the registry to read the Windows 10 Store/metro apps.
+
+### Process Facebook Chats
+Parses the chats from facebook on a windows OS.
+
 ### Process Extract VSS
 Example of the different types of things you can do with Autopsy plugin?
 
@@ -77,8 +89,14 @@ Export the prefetch files and thenc all the command line version of the prefetch
 ### Process SRUDB
 Export the System Resource Usage Database and then call the command line version of the Export SRUDB program.  A SQLite database that contains the Resource Usage information is created then imported into the extracted view of Autopsy.
 
+### Process Windows Mail
+Process Windows Mail store and added messages to communication manager.
+
 ### Shimache Parser
 Export the System Registry Hive and then call the command line version of the shimache_parser program.  A SQLite database that contains the shimache information is created then imported into the extracted view section of Autopsy.
+
+### Spotlight Parser
+Parses the Spotlight data from the macos.
 
 ### Thumbcache Parser
 Export all the thumbcache_*.db files in the image and then run the [thumbcache_viewer_cmd](https://github.com/thumbcacheviewer/thumbcacheviewer) program against them and export the embedded files to the ModuleOutput directory so that the files can then be added back into Autopsy.
@@ -102,6 +120,8 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 * SQLite Plugins
 * Amazon Echosystem Plugins
 * Gui Test Plugins
+* Process_Appx_Programs
+* Hash_Images
 
 ## Other Resources
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
