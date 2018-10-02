@@ -1,4 +1,4 @@
-License Agreement: export_Evtx.exe
+License Agreement: export_Evtx.exe Export_EVTX
  
 Copyright © 2015 RedWolf Computer Forensics LLC. All rights reserved.
 

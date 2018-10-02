@@ -124,6 +124,7 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 * Hash_Images
 * Process SRUDB
 * Parse EVTX by Event ID
+* Parse EVTX
 
 ## Other Resources
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
