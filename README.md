@@ -123,6 +123,7 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 * Process_Appx_Programs
 * Hash_Images
 * Process SRUDB
+* Parse EVTX by Event ID
 
 ## Other Resources
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
