@@ -122,6 +122,7 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 * Gui Test Plugins
 * Process_Appx_Programs
 * Hash_Images
+* Process SRUDB
 
 ## Other Resources
 You can read about some of the plugins at https://medium.com/@markmckinnon_80619
