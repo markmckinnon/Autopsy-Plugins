@@ -34,6 +34,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - Sept 2016
+#   Version 1.1 - Add usrclass.dat to files to parse, remove some commented out code.
 # 
 
 import jarray
@@ -136,7 +137,9 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
        # Set the database to be read to the once created by the SAM parser program
         skCase = Case.getCurrentCase().getSleuthkitCase();
         fileManager = Case.getCurrentCase().getServices().getFileManager()
-        files = fileManager.findFiles(dataSource, "ntuser.dat", "")
+        ntUserFiles = fileManager.findFiles(dataSource, "ntuser.dat", "")
+        usrClassFiles = fileManager.findFiles(dataSource, "usrclass.dat", "")
+        files = ntUserFiles + usrClassFiles  
         numFiles = len(files)
         self.log(Level.INFO, "found " + str(numFiles) + " files")
         progressBar.switchToDeterminate(numFiles)
@@ -150,23 +153,6 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
         except:
 		    self.log(Level.INFO, "Shellbag Directory already exists " + Temp_Dir)
 			
-        # Write out each Event Log file to the temp directory
-        # for file in files:
-            
-            #Check if the user pressed cancel while we were busy
-            # if self.context.isJobCancelled():
-                # return IngestModule.ProcessResult.OK
-
-            #self.log(Level.INFO, "Processing file: " + file.getName())
-            # fileCount += 1
-
-            #Save the DB locally in the temp folder. use file id as name to reduce collisions
-            # lclDbPath = os.path.join(Temp_Dir + "\\Shimcache\\", file.getName() + "-" + str(file.getId()))
-            # ContentUtils.writeToFile(file, File(lclDbPath))
-            # self.log(Level.INFO, "Saved File ==> " + lclDbPath)
-
-        # Example has only a Windows EXE, so bail if we aren't on Windows
-               
         for file in files:	
            # Check if the user pressed cancel while we were busy
            if self.context.isJobCancelled():
@@ -184,20 +170,12 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
                self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
                return IngestModule.ProcessResult.OK
 
-           # Run the EXE, saving output to a sqlite database
-           #try:
-#           self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " -i " + Temp_Dir + "\\Shimcache\\" + \
-#                    file.getName() + " -o " + Temp_Dir + "\\Shimcache_db.db3")
-#           pipe = Popen([self.path_to_exe, "-i " + Temp_Dir + "\\Shimcache\\" + file.getName(), "-o " + Temp_Dir + \
-#                         "\\Shimcache_db.db3"], stdout=PIPE, stderr=PIPE)
            self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + Temp_Dir + "\\shellbag\\" + \
                     file.getName() + " " + Temp_Dir + "\\shellbag_db.db3 " + file.getUniquePath())
            pipe = Popen([self.path_to_exe, Temp_Dir + "\\shellbag\\" + file.getName(), Temp_Dir + \
                          "\\Shellbag_db.db3", file.getUniquePath()], stdout=PIPE, stderr=PIPE)
            out_text = pipe.communicate()[0]
            self.log(Level.INFO, "Output from run is ==> " + out_text)               
-           #except:
-           #    self.log(Level.INFO, "Error running program shimcache_parser.")
                
            # Open the DB using JDBC
            lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "shellbag_db.db3")
