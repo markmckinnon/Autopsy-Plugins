@@ -130,7 +130,7 @@ class ProcessActivitiesCacheIngestModule(DataSourceIngestModule):
     def process(self, dataSource, progressBar):
 
         # we don't know how much work there is yet
-        progressBar.switchToIndeterminate()
+        #progressBar.switchToIndeterminate()
         
         # get current case and the ActivitiesCache abstract file information
         skCase = Case.getCurrentCase().getSleuthkitCase();
@@ -195,6 +195,10 @@ class ProcessActivitiesCacheIngestModule(DataSourceIngestModule):
             
             ContentUtils.writeToFile(file, File(extractedFile))
 
+            userpath = file.getParentPath()
+            username = userpath.split('/')
+            #self.log(Level.INFO, "Getting Username " + username[2]   )
+
 #        for file in files:
             fileName = file.getName()	
             if fileName.endswith(".db"):
@@ -246,6 +250,7 @@ class ProcessActivitiesCacheIngestModule(DataSourceIngestModule):
                     try:
                         artifact = file.newArtifact(artActCacheId)
                         attributes = ArrayList()
+                        attributes.add(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_USER_NAME.getTypeID(), moduleName, username[2]))
                         for x in range(0, columnCount):
                             if columnNames[x] in self.dateColumn:
                                 #self.log(Level.INFO, "Date ColumnName ==> " + columnNames[x])
