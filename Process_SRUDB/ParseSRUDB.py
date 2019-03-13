@@ -35,6 +35,7 @@
 #   Version 1.0 - Initial version - APril 2016
 #   Version 1.1 - Custom artifacts/attributes - August 31, 2016
 #   Version 1.2 - Add Linux support - Oct 2018
+#   Version 1.3 - Fix Storing of option panel settings - March, 2019
 # 
 
 import jarray
@@ -70,8 +71,8 @@ from org.sleuthkit.datamodel import BlackboardAttribute
 from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -97,21 +98,22 @@ class ParseSRUDBIngestModuleFactory(IngestModuleFactoryAdapter):
         return self.moduleName
     
     def getModuleDescription(self):
-        return "Parses sytem Resource DB"
+        return "Parses system Resource DB"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.3"
     
     def getDefaultIngestJobSettings(self):
-        return Parse_SRUDBWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
+    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, Parse_SRUDBWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return Parse_SRUDBWithUISettingsPanel(self.settings)
 
@@ -152,7 +154,7 @@ class ParseSRUDBIngestModule(DataSourceIngestModule):
             if not os.path.exists(self.path_to_exe):
                 raise IngestModuleException("Linux Executable was not found in module folder")
 
-        if self.local_settings.getFlag():
+        if self.local_settings.getSetting('all') == 'true':
             self.List_Of_SRUDB.append('application_resource_usage')
             self.List_Of_SRUDB.append('energy_estimation_provider')
             self.List_Of_SRUDB.append('energy_usage_data')
@@ -162,19 +164,19 @@ class ParseSRUDBIngestModule(DataSourceIngestModule):
             #self.logger.logp(Level.INFO, Parse_SRUDBWithUI.__name__, "startUp", "All Events CHecked")
         else:
             #self.logger.logp(Level.INFO, Parse_SRUDBWithUI.__name__, "startUp", "No Boxes Checked")
-            if self.local_settings.getFlag1():
+            if self.local_settings.getSetting('application_resource_usage')  == 'true':
                 self.List_Of_SRUDB.append('application_resource_usage')
-            if self.local_settings.getFlag2():
+            if self.local_settings.getSetting('energy_estimation_provider')  == 'true':
                 self.List_Of_SRUDB.append('energy_estimation_provider')
-            if self.local_settings.getFlag3():
+            if self.local_settings.getSetting('energy_usage_data')  == 'true':
                 self.List_Of_SRUDB.append('energy_usage_data')
-            if self.local_settings.getFlag4():
+            if self.local_settings.getSetting('network_connectivity')  == 'true':
                 self.List_Of_SRUDB.append('network_connectivity')
-            if self.local_settings.getFlag5():
+            if self.local_settings.getSetting('network_usage')  == 'true':
                 self.List_Of_SRUDB.append('network_usage')
-            if self.local_settings.getFlag6():
+            if self.local_settings.getSetting('windows_push_notification')  == 'true':
                 self.List_Of_SRUDB.append('windows_push_notification')
-        
+         
         #self.logger.logp(Level.INFO, Parse_SRUDBWithUI.__name__, "startUp", str(self.List_Of_Events))
         self.log(Level.INFO, str(self.List_Of_SRUDB))
 		
@@ -183,10 +185,6 @@ class ParseSRUDBIngestModule(DataSourceIngestModule):
         pass
 
     # Where the analysis is done.
-    # The 'dataSource' object being passed in is of type org.sleuthkit.datamodel.Content.
-    # See: http://www.sleuthkit.org/sleuthkit/docs/jni-docs/interfaceorg_1_1sleuthkit_1_1datamodel_1_1_content.html
-    # 'progressBar' is of type org.sleuthkit.autopsy.ingest.DataSourceIngestModuleProgress
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_data_source_ingest_module_progress.html
     def process(self, dataSource, progressBar):
 
         # we don't know how much work there is yet
@@ -319,10 +317,6 @@ class ParseSRUDBIngestModule(DataSourceIngestModule):
                                  art.addAttribute(BlackboardAttribute(attID_ex1, ParseSRUDBIngestModuleFactory.moduleName, resultSet3.getString(Column_Number)))
                              elif Column_Types[Column_Number - 1] == "":
                                   art.addAttribute(BlackboardAttribute(attID_ex1, ParseSRUDBIngestModuleFactory.moduleName, resultSet3.getString(Column_Number)))
-#                             elif Column_Types[Column_Number - 1] == "BLOB":
-#                                 art.addAttribute(BlackboardAttribute(attID_ex1, ParseSRUDBIngestModuleFactory.moduleName, "BLOBS Not Supported"))
-#                             elif Column_Types[Column_Number - 1] == "REAL":
-#                                 art.addAttribute(BlackboardAttribute(attID_ex1, ParseSRUDBIngestModuleFactory.moduleName, resultSet3.getFloat(Column_Number)))
                              else:
                                  #self.log(Level.INFO, "Value for column type ==> " + str(resultSet3.getInt(Column_Number)) + " <== ")
                                  art.addAttribute(BlackboardAttribute(attID_ex1, ParseSRUDBIngestModuleFactory.moduleName, long(resultSet3.getInt(Column_Number))))
@@ -334,7 +328,10 @@ class ParseSRUDBIngestModule(DataSourceIngestModule):
                        self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
 
         # Clean up
-        os.remove(lclDbPath)
+        try:
+            os.remove(lclDbPath)
+        except:
+            self.log(Level.INFO, "removal of " + lclDbPath + " Failed")
         			
 		#Clean up EventLog directory and files
         for file in files:
@@ -356,73 +353,7 @@ class ParseSRUDBIngestModule(DataSourceIngestModule):
 		
 # Stores the settings that can be changed for each ingest job
 # All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class Parse_SRUDBWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
 
-    def __init__(self):
-        self.flag = False
-        self.flag1 = False
-        self.flag2 = False
-        self.flag3 = False
-        self.flag4 = False
-        self.flag5 = False
-        self.flag6 = False
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # TODO: Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.flag
-
-    def setFlag(self, flag):
-        self.flag = flag
-
-    def getFlag1(self):
-        return self.flag1
-
-    def setFlag1(self, flag1):
-        self.flag1 = flag1
-
-    def getFlag2(self):
-        return self.flag2
-
-    def setFlag2(self, flag2):
-        self.flag2 = flag2
-
-    def getFlag3(self):
-        return self.flag3
-
-    def setFlag3(self, flag3):
-        self.flag3 = flag3
-
-    def getFlag4(self):
-        return self.flag4
-
-    def setFlag4(self, flag4):
-        self.flag4 = flag4
-
-    def getFlag5(self):
-        return self.flag5
-
-    def setFlag5(self, flag5):
-        self.flag5 = flag5
-
-    def getFlag6(self):
-        return self.flag6
-
-    def setFlag6(self, flag6):
-        self.flag6 = flag6
-
-    def getArea(self):
-        return self.area
-
-    def setArea(self, area):
-        self.area = area
-
-# UI that is shown to user for each ingest job so they can configure the job.
-# TODO: Rename this
 class Parse_SRUDBWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -435,53 +366,47 @@ class Parse_SRUDBWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     
     # We get passed in a previous version of the settings so that we can
     # prepopulate the UI
-    # TODO: Update this for your UI
     def __init__(self, settings):
         self.local_settings = settings
         self.initComponents()
         self.customizeComponents()
     
-    # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.checkbox.isSelected():
-            self.local_settings.setFlag(True)
+            self.local_settings.setSetting('all', 'true')
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('all', 'false')
 
         if self.checkbox1.isSelected():
-            self.local_settings.setFlag1(True)
+            self.local_settings.setSetting('application_resource_usage', 'true')
         else:
-            self.local_settings.setFlag1(False)
+            self.local_settings.setSetting('application_resource_usage', 'false')
 
         if self.checkbox2.isSelected():
-            self.local_settings.setFlag2(True)
+            self.local_settings.setSetting('energy_estimation_provider', 'true')
         else:
-            self.local_settings.setFlag2(False)
+            self.local_settings.setSetting('energy_estimation_provider', 'false')
 
         if self.checkbox3.isSelected():
-            self.local_settings.setFlag3(True)
+            self.local_settings.setSetting('energy_usage_data', 'true')
         else:
-            self.local_settings.setFlag3(False)
+            self.local_settings.setSetting('energy_usage_data', 'false')
 
         if self.checkbox4.isSelected():
-            self.local_settings.setFlag4(True)
+            self.local_settings.setSetting('network_connectivity', 'true')
         else:
-            self.local_settings.setFlag4(False)
+            self.local_settings.setSetting('network_connectivity', 'false')
 
         if self.checkbox5.isSelected():
-            self.local_settings.setFlag5(True)
+            self.local_settings.setSetting('network_usage', 'true')
         else:
-            self.local_settings.setFlag5(False)
+            self.local_settings.setSetting('network_usage', 'false')
 
         if self.checkbox5.isSelected():
-            self.local_settings.setFlag5(True)
+            self.local_settings.setSetting('windows_push_notification', 'true')
         else:
-            self.local_settings.setFlag5(False)
+            self.local_settings.setSetting('windows_push_notification', 'false')
 
-    def keyPressed(self, event):
-        self.local_settings.setArea(self.area.getText());
-
-    # TODO: Update this for your UI
     def initComponents(self):
         self.setLayout(BoxLayout(self, BoxLayout.Y_AXIS))
         #self.setLayout(GridLayout(0,1))
@@ -505,18 +430,16 @@ class Parse_SRUDBWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.panel1.add(self.checkbox6)
         self.add(self.panel1)
 		
-    # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkbox.setSelected(self.local_settings.getFlag())
-        self.checkbox1.setSelected(self.local_settings.getFlag1())
-        self.checkbox2.setSelected(self.local_settings.getFlag2())
-        self.checkbox3.setSelected(self.local_settings.getFlag3())
-        self.checkbox4.setSelected(self.local_settings.getFlag4())
-        self.checkbox5.setSelected(self.local_settings.getFlag4())
-        self.checkbox6.setSelected(self.local_settings.getFlag4())
+        self.checkbox.setSelected(self.local_settings.getSetting('all') == 'true')
+        self.checkbox1.setSelected(self.local_settings.getSetting('application_resource_usage') == 'true')
+        self.checkbox2.setSelected(self.local_settings.getSetting('energy_estimation_provider') == 'true')
+        self.checkbox3.setSelected(self.local_settings.getSetting('energy_usage_data') == 'true')
+        self.checkbox4.setSelected(self.local_settings.getSetting('network_connectivity') == 'true')
+        self.checkbox5.setSelected(self.local_settings.getSetting('network_usage') == 'true')
+        self.checkbox6.setSelected(self.local_settings.getSetting('windows_push_notification') == 'true')
 
     # Return the settings used
     def getSettings(self):
         return self.local_settings
-
  

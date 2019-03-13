@@ -65,8 +65,8 @@ from org.sleuthkit.datamodel import TskData
 from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -101,11 +101,11 @@ class HashImagesIngestModuleFactory(IngestModuleFactoryAdapter):
         return True
 
     def getDefaultIngestJobSettings(self):
-        return HashImageSettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, HashImageSettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return HashImageSettingsWithUISettingsPanel(self.settings)
 
@@ -135,9 +135,9 @@ class HashImagesIngestModule(DataSourceIngestModule):
 
     def startUp(self, context):
         self.context = context
-        self.FTKLogFile = self.local_settings.getFTKLogFile()
-        self.MD5HashToCheck = self.local_settings.getMD5HashValue()
-        self.SHA1HashToCheck = self.local_settings.getSHA1HashValue()
+        self.FTKLogFile = self.local_settings.getSetting('FTKLogFile')
+        self.MD5HashToCheck = self.local_settings.getSetting('MD5Hash')
+        self.SHA1HashToCheck = self.local_settings.getSetting('SHA1Hash')
         self.log(Level.INFO, "Settings ==> " + str( self.MD5HashToCheck) + " <> " + str( self.SHA1HashToCheck))
         self.log(Level.INFO, "Settings ==> " + str(len(self.MD5HashToCheck)) + " <> " + str(len(self.SHA1HashToCheck)))
         pass
@@ -172,7 +172,7 @@ class HashImagesIngestModule(DataSourceIngestModule):
 
     
         FTKHashValues = {}
-        if (len(self.FTKLogFile) > 1):
+        if (self.FTKLogFile != None):
             FTKHashValues = self.getFTKHashs(self.FTKLogFile)
         
         # we don't know how much work there is yet
@@ -256,39 +256,6 @@ class HashImagesIngestModule(DataSourceIngestModule):
 
             return IngestModule.ProcessResult.OK                
         
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-class HashImageSettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.FTKLogFile = ""
-        self.MD5HashValue = ""
-        self.SHA1HashValue = ""
-        
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getFTKLogFile(self):
-        return self.FTKLogFile
-
-    def setFTKLogFile(self, fileName):
-        self.FTKLogFile = fileName
-        
-    def getMD5HashValue(self):
-        return self.MD5HashValue
-
-    def setMD5HashValue(self, hashValue):
-        self.MD5HashValue = hashValue
-        
-    def getSHA1HashValue(self):
-        return self.SHA1HashValue
-
-    def setSHA1HashValue(self, hashValue):
-        self.SHA1HashValue = hashValue
-
-  
 # UI that is shown to user for each ingest job so they can configure the job.
 class HashImageSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
@@ -319,14 +286,15 @@ class HashImageSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
            file = chooseFile.getSelectedFile()
            Canonical_file = file.getCanonicalPath()
            #text = self.readPath(file)
-           self.local_settings.setFTKLogFile(Canonical_file)
+           self.local_settings.setSetting('FTKLogFile', Canonical_file)
+           setSetting('FTKLogFile', Canonical_file)
            self.FTKLogFile_TF.setText(Canonical_file)
 
     def keyPressedMD5(self, event):  
-        self.local_settings.setMD5HashValue(self.MD5HashValue_TF.getText())
+        self.local_settings.setSetting('MD5Hash', self.MD5HashValue_TF.getText())
 
     def keyPressedSHA1(self, event):  
-        self.local_settings.setSHA1HashValue(self.SHA1HashValue_TF.getText())
+        self.local_settings.setSetting('SHA1Hash', self.SHA1HashValue_TF.getText())
 
     # Create the initial data fields/layout in the UI
     def initComponents(self):
@@ -489,7 +457,7 @@ class HashImageSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         
     # Return the settings used
     def getSettings(self):
-        self.local_settings.setMD5HashValue(self.MD5HashValue_TF.getText())
-        self.local_settings.setSHA1HashValue(self.SHA1HashValue_TF.getText())
+        self.local_settings.setSetting('MD5Hash', self.MD5HashValue_TF.getText())
+        self.local_settings.setSetting('SHA1Hash', self.SHA1HashValue_TF.getText())
         return self.local_settings
 

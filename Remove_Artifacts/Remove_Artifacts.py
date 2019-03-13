@@ -25,6 +25,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - Feb 2017
+#   Version 1.1 - Fix options panel GUI - March 2019
 # 
 
 import jarray
@@ -59,8 +60,8 @@ from org.sleuthkit.datamodel import BlackboardAttribute
 from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -89,17 +90,17 @@ class Remove_ArtifactsIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Remove Artifacts and Attributes"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.2"
     
     def getDefaultIngestJobSettings(self):
-        return Remove_ArtifactsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, Remove_ArtifactsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return Remove_ArtifactsWithUISettingsPanel(self.settings)
 
@@ -133,21 +134,22 @@ class Remove_ArtifactsIngestModule(DataSourceIngestModule):
         # Check to see if the file to execute exists, if it does not then raise an exception and log error
         # data is taken from the UI
 
-        self.list_box_entry = self.local_settings.getListBox()
+        self.list_box_entry = self.local_settings.getSetting('listSelected')
         self.log(Level.INFO, "List Box Entry Starts here =====>")
         self.log(Level.INFO, str(self.list_box_entry))
-        for num in range (0, len(self.list_box_entry)):
-           self.log(Level.INFO, str(self.list_box_entry[num]))
-        self.log(Level.INFO, "<====== List Box Entry Ends here")
+        if self.list_box_entry != None:
+            for num in range (0, len(self.list_box_entry)):
+               self.log(Level.INFO, str(self.list_box_entry[num]))
+            self.log(Level.INFO, "<====== List Box Entry Ends here")
         
-        if self.local_settings.getAll_Artifacts():
+        if self.local_settings.getSetting('allArtifacts') == 'true':
             self.log(Level.INFO, "Delete All Artifacts")
             self.delete_all_artifacts = True
         else:
             self.log(Level.INFO, "Do Not Delete All Artifacts")
             self.delete_all_artifacts = False
             
-        if self.local_settings.getAll_Attributes():
+        if self.local_settings.getSetting('allAttributes') == 'true':
             self.log(Level.INFO, "Delete All Attributes")
             self.delete_all_attributes = True
         else:
@@ -251,47 +253,6 @@ class Remove_ArtifactsIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 		
-
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class Remove_ArtifactsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.ListBox = []
-        self.All_Artifacts = False
-        self.All_Attributes = False
-
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-        
-    def getAll_Artifacts(self):
-        return self.All_Artifacts
-
-    def setAll_Artifacts(self, flag):
-        self.All_Artifacts = flag
-
-    def getAll_Attributes(self):
-        return self.All_Attributes
-
-    def setAll_Attributes(self, flag):
-        self.All_Attributes = flag
-
-    def getListBox(self):
-        return self.ListBox
-
-    def clearListBox(self):
-        self.ListBox[:] = []
-
-    def setListBox(self, entry):
-        self.ListBox = entry
-
-# UI that is shown to user for each ingest job so they can configure the job.
-# TODO: Rename this
 class Remove_ArtifactsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -314,27 +275,23 @@ class Remove_ArtifactsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Check to see if there are any entries that need to be populated from the database.        
     def checkBoxEvent(self, event):
         if self.All_Artifacts_CB.isSelected():
-            self.local_settings.setAll_Artifacts(True)
+            self.local_settings.setSetting('allArtifacts', 'true')
             self.List_Box_LB.setEnabled(False)
         else:
-            self.local_settings.setAll_Artifacts(False)
+            self.local_settings.setSetting('allArtifacts', 'false')
             self.List_Box_LB.setEnabled(True)
 
         if self.All_Attributes_CB.isSelected():
-            self.local_settings.setAll_Attributes(True)
+            self.local_settings.setSetting('allAttributes', 'true')
             self.List_Box_LB.setEnabled(False)
         else:
-            self.local_settings.setAll_Attributes(False)
+            self.local_settings.setSetting('allAttributes', 'false')
             self.List_Box_LB.setEnabled(True)
 
     def onchange_lb(self, event):
-        self.local_settings.clearListBox()
+        self.local_settings.setSetting('listSelected', '')
         list_selected = self.List_Box_LB.getSelectedValuesList()
-        self.local_settings.setListBox(list_selected)      
-        # if (len(list_selected) > 0):
-            # self.Error_Message.setText(str(list_selected))
-        # else:
-            # self.Error_Message.setText("")
+        self.local_settings.setSetting('listSelected', list_selected)      
 
     def get_artifacts(self):
     
@@ -492,8 +449,8 @@ class Remove_ArtifactsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # Custom load any data field and initialize the values
     def customizeComponents(self):
-        self.All_Artifacts_CB.setSelected(self.local_settings.getAll_Attributes())
-        self.All_Attributes_CB.setSelected(self.local_settings.getAll_Artifacts())
+        self.All_Artifacts_CB.setSelected(self.local_settings.getSetting('allArtifacts') == 'true')
+        self.All_Attributes_CB.setSelected(self.local_settings.getSetting('allAttributes') == 'true')
 
     # Return the settings used
     def getSettings(self):

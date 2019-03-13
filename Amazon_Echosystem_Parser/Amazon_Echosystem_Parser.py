@@ -140,14 +140,14 @@ class Alexa_DB_ParseIngestModule(DataSourceIngestModule):
         skCase = Case.getCurrentCase().getSleuthkitCase();
 
         head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\alexa_db.db3"
+        settings_db = os.path.join(head, "Alexa_DB.db3")
 
         #Start to process based on version of OS
         try: 
            Class.forName("org.sqlite.JDBC").newInstance()
            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
         except SQLException as e:
-           self.log(Level.INFO, "Could not open database file (not SQLite) macos_recents.db3 (" + e.getMessage() + ")")
+           self.log(Level.INFO, "Could not open database file (not SQLite) Alexa_DB.db3 (" + e.getMessage() + ")")
            return IngestModule.ProcessResult.OK
         
         # Query the database table for unique file names 
