@@ -33,6 +33,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - April 2018
+#   Version 1.1 - Linux support added
 # 
 
 import jarray
@@ -84,7 +85,7 @@ class ProcessWinMailIngestModuleFactory(IngestModuleFactoryAdapter):
         return self.moduleName
     
     def getModuleDescription(self):
-        return "Parses The SAM Registry Hive"
+        return "Parses Windows Mail Store"
     
     def getModuleVersionNumber(self):
         return "1.0"
@@ -100,9 +101,9 @@ class ProcessWinMailIngestModule(DataSourceIngestModule):
 
 #    _logger = Logger.getLogger(ProcessWinMailIngestModuleFactory.moduleName)
 
-#    def log(self, level, msg):
-#        self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
-#        self._logger = Logger.getLogger(self.__class__.__name__)
+    def log(self, level, msg):
+        self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
+        self._logger = Logger.getLogger(self.__class__.__name__)
 
     def __init__(self, settings):
         self.context = None
@@ -123,6 +124,7 @@ class ProcessWinMailIngestModule(DataSourceIngestModule):
             if not os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_esedb_records.exe")):
                 raise IngestModuleException("export_esedb_records.exe was not found in module folder")
         else:        
+            self.pathToExe2 = os.path.dirname(os.path.abspath(__file__))
             self.pathToExe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_esedb")
             if not os.path.exists(self.pathToExe):
                 raise IngestModuleException("export_esedb was not found in module folder")
@@ -205,9 +207,12 @@ class ProcessWinMailIngestModule(DataSourceIngestModule):
     def processEsedbFile(self, extractedFile, databaseFile):
 
         #self.log(Level.INFO, "Running program ==> " + self.pathToExe + " " + extractedFile + databaseFile)
-        pipe = Popen([self.pathToExe, extractedFile, databaseFile], stdout=PIPE, stderr=PIPE)
+        if PlatformUtil.isWindowsOS():
+            pipe = Popen([self.pathToExe, extractedFile, databaseFile], stdout=PIPE, stderr=PIPE)
+        else:
+            pipe = Popen([self.pathToExe, extractedFile, databaseFile, self.pathToExe2], stdout=PIPE, stderr=PIPE)			
         outputFromRun = pipe.communicate()[0]
-        #self.log(Level.INFO, "Output from run is ==> " + outputFromRun)               
+        self.log(Level.INFO, "Output from run is ==> " + outputFromRun)               
 
 
     def processRecipients(self, dbConn, skCase, file):

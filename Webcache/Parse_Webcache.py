@@ -34,12 +34,13 @@
 # Comments 
 #   Version 1.0 - Initial version - June 2016
 #   Version 1.1 - Added custom artifacts/attributes - September 1, 2016
+#   Version 1.2 - Added Linux Support - November 2018
 # 
 
 import jarray
 import inspect
 import os
-import subprocess
+from subprocess import Popen, PIPE
 import sys
 
 from java.lang import Class
@@ -109,9 +110,14 @@ class ParseWebcacheIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_Webcache.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_Webcache.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Export_Webcache')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
 
      
     # Where the analysis is done.
@@ -137,10 +143,11 @@ class ParseWebcacheIngestModule(DataSourceIngestModule):
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "Webcache")
         try:
-		    os.mkdir(Temp_Dir + "\Webcache")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "Webcache Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "Webcache Directory already exists " + temp_dir)
 			
         # Write out each Event Log file to the temp directory
         for file in files:
@@ -153,24 +160,21 @@ class ParseWebcacheIngestModule(DataSourceIngestModule):
             fileCount += 1
 
             # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            lclDbPath = os.path.join(Temp_Dir + "\Webcache", file.getName() + "-" + str(file.getId()))
-            DbPath = os.path.join(Temp_Dir, file.getName() + "-" + str(file.getId()) + ".db3")
+            lclDbPath = os.path.join(temp_dir, file.getName() + "-" + str(file.getId()))
+            DbPath = os.path.join(temp_dir, file.getName() + "-" + str(file.getId()) + ".db3")
             self.log(Level.INFO, file.getName() + ' ==> ' + str(file.getId()) + ' ==> ' + file.getUniquePath()) 
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
             # Run the EXE, saving output to a sqlite database
-            self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "  Parm 2 ==> " + Temp_Dir + "\WebcacheV01.db3")
-            subprocess.Popen([self.path_to_exe, lclDbPath, DbPath]).communicate()[0]   
+            self.log(Level.INFO, "Running program on data source parm 1 ==> " + temp_dir + "  Parm 2 ==> " + DbPath)
+            #subprocess.Popen([self.path_to_exe, lclDbPath, DbPath]).communicate()[0]   
+            pipe = Popen([self.path_to_exe, lclDbPath, DbPath], stdout=PIPE, stderr=PIPE, cwd=os.path.dirname(os.path.abspath(__file__)))
+            out_text = pipe.communicate()[0]
+            self.log(Level.INFO, "Output from run is ==> " + out_text)               
 
-        # Example has only a Windows EXE, so bail if we aren't on Windows
-        if not PlatformUtil.isWindowsOS(): 
-            self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-            return IngestModule.ProcessResult.OK
-
-               
         for file in files:	
            # Open the DB using JDBC
-           lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), file.getName() + "-" + str(file.getId()) + ".db3")
+           lclDbPath = os.path.join(temp_dir, file.getName() + "-" + str(file.getId()) + ".db3")
            self.log(Level.INFO, "Path the Webcache database file created ==> " + lclDbPath)
 
            try: 
@@ -286,12 +290,12 @@ class ParseWebcacheIngestModule(DataSourceIngestModule):
 		#Clean up EventLog directory and files
         for file in files:
             try:
-                os.remove(Temp_Dir + "\\Webcache\\" + file.getName() + "-" + str(file.getId()))
-                os.remove(Temp_Dir + "\\" + file.getName() + "-" + str(file.getId()) + ".db3")
+                os.remove(os.path.join(temp_dir, file.getName() + "-" + str(file.getId())))
+                os.remove(os.path.join(temp_dir, file.getName() + "-" + str(file.getId()) + ".db3"))
             except:
-			    self.log(Level.INFO, "removal of Webcache file failed " + Temp_Dir + "\\" + file.getName() + "-" + str(file.getId()))
+			    self.log(Level.INFO, "removal of Webcache file failed " + temp_dir + "\\" + file.getName() + "-" + str(file.getId()))
         try:
-             os.rmdir(Temp_Dir + "\\Webcache")		
+             os.rmdir(temp_dir)		
         except:
 		     self.log(Level.INFO, "removal of Webcache directory failed " + Temp_Dir)
 

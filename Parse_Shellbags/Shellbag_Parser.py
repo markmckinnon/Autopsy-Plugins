@@ -35,6 +35,7 @@
 # Comments 
 #   Version 1.0 - Initial version - Sept 2016
 #   Version 1.1 - Add usrclass.dat to files to parse, remove some commented out code.
+#   Version 1.2 - Added Linux Support
 # 
 
 import jarray
@@ -116,9 +117,14 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shellbags.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shellbags.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shellbags')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -148,10 +154,11 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "shellbag")
         try:
-		    os.mkdir(Temp_Dir + "/shellbag")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "Shellbag Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "Shellbag Directory already exists " + temp_dir)
 			
         for file in files:	
            # Check if the user pressed cancel while we were busy
@@ -162,23 +169,19 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
            fileCount += 1
 
            # Save the DB locally in the temp folder. use file id as name to reduce collisions
-           lclDbPath = os.path.join(Temp_Dir + "\\shellbag\\", file.getName())
+           lclDbPath = os.path.join(temp_dir, file.getName())
            ContentUtils.writeToFile(file, File(lclDbPath))
            self.log(Level.INFO, "Saved File ==> " + lclDbPath)
 
-           if not PlatformUtil.isWindowsOS(): 
-               self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-               return IngestModule.ProcessResult.OK
-
-           self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + Temp_Dir + "\\shellbag\\" + \
-                    file.getName() + " " + Temp_Dir + "\\shellbag_db.db3 " + file.getUniquePath())
-           pipe = Popen([self.path_to_exe, Temp_Dir + "\\shellbag\\" + file.getName(), Temp_Dir + \
-                         "\\Shellbag_db.db3", file.getUniquePath()], stdout=PIPE, stderr=PIPE)
+           self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + temp_dir + \
+                    file.getName() + " " + temp_dir + "\\shellbag_db.db3 " + file.getUniquePath())
+           pipe = Popen([self.path_to_exe, os.path.join(temp_dir, file.getName()), os.path.join(temp_dir, "Shellbag_db.db3"), \
+                   file.getUniquePath()], stdout=PIPE, stderr=PIPE)
            out_text = pipe.communicate()[0]
            self.log(Level.INFO, "Output from run is ==> " + out_text)               
                
            # Open the DB using JDBC
-           lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "shellbag_db.db3")
+           lclDbPath = os.path.join(temp_dir, "Shellbag_db.db3")
            self.log(Level.INFO, "Path the system database file created ==> " + lclDbPath) 
            
            try: 
@@ -268,11 +271,11 @@ class ParseShellbagsIngestModule(DataSourceIngestModule):
            #os.remove(lclDbPath)
            for file in files:
               try:
-			     os.remove(Temp_Dir + "\\Shellbag\\" + file.getName())
+			     os.remove(os.path.join(temp_dir, file.getName()))
               except:
-			     self.log(Level.INFO, "removal of shellbag file failed " + Temp_Dir + "\\" + file.getName())
+			     self.log(Level.INFO, "removal of shellbag file failed " + temp_dir + "\\" + file.getName())
         try:
-            os.rmdir(Temp_Dir + "\\Shellbag")		
+            os.rmdir(temp_dir)		
         except:
 		    self.log(Level.INFO, "removal of Shellbag directory failed " + Temp_Dir)
 

@@ -34,6 +34,8 @@
 # Comments 
 #   Version 1.0 - Initial version - June 2016
 #   Version 1.1 - Added custom artifacts and attributes - Aug 31, 2016
+#   version 1.2 - Added Linux Support
+#   Version 1.3 - fix options panel - March 2018
 # 
 
 import jarray
@@ -70,7 +72,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -99,18 +101,19 @@ class ParseAmcacheIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Parses Amcache"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.3"
 
     def getDefaultIngestJobSettings(self):
-        return Process_AmcacheWithUISettings()
+        return GenericIngestModuleJobSettings()
+
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, Process_AmcacheWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleSettings")
         self.settings = settings
         return Process_AmcacheWithUISettingsPanel(self.settings)    
     
@@ -142,16 +145,20 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "amcache_parser.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
-        
-        if self.local_settings.getFlag():
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "amcache_parser.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'amcache_parser')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
+
+        if self.local_settings.getSetting('associateFileEntries') =='true':
             self.List_Of_tables.append('associated_file_entries')
-        #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", "All Events CHecked")
-        if self.local_settings.getFlag1():
+        if self.local_settings.getSetting('programEntries') == 'true':
             self.List_Of_tables.append('program_entries')
-        if self.local_settings.getFlag2():
+        if self.local_settings.getSetting('unassociatePrograms') == 'true':
             self.List_Of_tables.append('unassociated_programs')
         
         #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", str(self.List_Of_Events))
@@ -170,7 +177,7 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
     def process(self, dataSource, progressBar):
 
         if len(self.List_Of_tables) < 1:
-            message = IngestMessage.createMessage(IngestMessage.MessageType.DATA, "ParseEvtx", " No Amcache tables Selected to Parse " )
+            message = IngestMessage.createMessage(IngestMessage.MessageType.DATA, "ParseAmcache", " No Amcache tables Selected to Parse " )
             IngestServices.getInstance().postMessage(message)
             return IngestModule.ProcessResult.ERROR
 
@@ -188,11 +195,12 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
 
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
-        self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "amcache")
+        self.log(Level.INFO, "create Directory " + temp_dir)
         try:
-		    os.mkdir(Temp_Dir + "\Amcache")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "Amcache Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "Amcache Directory already exists " + temp_dir)
 			
         # Write out each Event Log file to the temp directory
         for file in files:
@@ -205,22 +213,18 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
             fileCount += 1
 
             # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            lclDbPath = os.path.join(Temp_Dir + "\Amcache", file.getName())
+            lclDbPath = os.path.join(temp_dir, file.getName())
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
 
         # Example has only a Windows EXE, so bail if we aren't on Windows
-        if not PlatformUtil.isWindowsOS(): 
-            self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-            return IngestModule.ProcessResult.OK
-
         # Run the EXE, saving output to a sqlite database
         self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "\Amcache\Amcache.hve  Parm 2 ==> " + Temp_Dir + "\Amcache.db3")
-        subprocess.Popen([self.path_to_exe, Temp_Dir + "\Amcache\Amcache.hve", Temp_Dir + "\Amcache.db3"]).communicate()[0]   
+        subprocess.Popen([self.path_to_exe, os.path.join(temp_dir, "Amcache.hve"), os.path.join(temp_dir, "Amcache.db3")]).communicate()[0]   
                
         for file in files:	
            # Open the DB using JDBC
-           lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "Amcache.db3")
+           lclDbPath = os.path.join(temp_dir, "Amcache.db3")
            self.log(Level.INFO, "Path the Amcache database file created ==> " + lclDbPath)
            try: 
                Class.forName("org.sqlite.JDBC").newInstance()
@@ -346,38 +350,6 @@ class ParseAmcacheIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 		
-class Process_AmcacheWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.flag = False
-        self.flag1 = False
-        self.flag2 = False
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # TODO: Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.flag
-
-    def setFlag(self, flag):
-        self.flag = flag
-
-    def getFlag1(self):
-        return self.flag1
-
-    def setFlag1(self, flag1):
-        self.flag1 = flag1
-
-    def getFlag2(self):
-        return self.flag2
-
-    def setFlag2(self, flag2):
-        self.flag2 = flag2
-
-# UI that is shown to user for each ingest job so they can configure the job.
-# TODO: Rename this
 class Process_AmcacheWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -399,17 +371,17 @@ class Process_AmcacheWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.checkbox.isSelected():
-            self.local_settings.setFlag(True)
+            self.local_settings.setSetting('associateFileEntries', 'true')
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('associateFileEntries', 'false')
         if self.checkbox1.isSelected():
-            self.local_settings.setFlag1(True)
+            self.local_settings.setSetting('programEntries', 'true')
         else:
-            self.local_settings.setFlag1(False)
+            self.local_settings.setSetting('programEntries', 'false')
         if self.checkbox2.isSelected():
-            self.local_settings.setFlag2(True)
+            self.local_settings.setSetting('unassociatePrograms', 'true')
         else:
-            self.local_settings.setFlag2(False)
+            self.local_settings.setSetting('unassociatePrograms', 'true')
 
 
     # TODO: Update this for your UI
@@ -432,9 +404,9 @@ class Process_AmcacheWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkbox.setSelected(self.local_settings.getFlag())
-        self.checkbox1.setSelected(self.local_settings.getFlag1())
-        self.checkbox2.setSelected(self.local_settings.getFlag2())
+        self.checkbox.setSelected(self.local_settings.getSetting('associateFileEntries') == 'true')
+        self.checkbox1.setSelected(self.local_settings.getSetting('programEntries') == 'true')
+        self.checkbox2.setSelected(self.local_settings.getSetting('unassociatePrograms') == 'true')
 
     # Return the settings used
     def getSettings(self):

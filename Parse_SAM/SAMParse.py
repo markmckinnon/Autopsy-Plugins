@@ -34,6 +34,7 @@
 # Comments 
 #   Version 1.0 - Initial version - June 2016
 #   Version 1.1 - Added Custom artifacts and attributes - August 30, 2016
+#   Version 1.2 - Added Support for Linux and cleanup code
 # 
 
 import jarray
@@ -107,32 +108,34 @@ class ParseSAMIngestModule(DataSourceIngestModule):
 
     # Where any setup and configuration is done
     # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_ingest_job_context.html
     def startUp(self, context):
         self.context = context
 
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samparse.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        # Check what OS you are running from 
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samparse.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Samparse')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
+
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
         pass
 
     # Where the analysis is done.
-    # The 'dataSource' object being passed in is of type org.sleuthkit.datamodel.Content.
-    # See: http://www.sleuthkit.org/sleuthkit/docs/jni-docs/interfaceorg_1_1sleuthkit_1_1datamodel_1_1_content.html
-    # 'progressBar' is of type org.sleuthkit.autopsy.ingest.DataSourceIngestModuleProgress
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_data_source_ingest_module_progress.html
     def process(self, dataSource, progressBar):
 
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
         
-       # Set the database to be read to the once created by the SAM parser program
+        # Set the database to be read to the once created by the SAM parser program
         skCase = Case.getCurrentCase().getSleuthkitCase();
         fileManager = Case.getCurrentCase().getServices().getFileManager()
         files = fileManager.findFiles(dataSource, "SAM", "config")
@@ -140,16 +143,27 @@ class ParseSAMIngestModule(DataSourceIngestModule):
         self.log(Level.INFO, "found " + str(numFiles) + " files")
         progressBar.switchToDeterminate(numFiles)
         fileCount = 0;
+        lclDbPath = ''
 
-		# Create Event Log directory in temp directory, if it exists then continue on processing		
+        try:
+             self.log(Level.INFO, "Begin Create New Artifacts")
+             artID_sam = skCase.addArtifactType( "TSK_SAM", "SAM File")
+        except:		
+             self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
+
+        artID_sam = skCase.getArtifactTypeID("TSK_SAM")
+        artID_sam_evt = skCase.getArtifactType("TSK_SAM")
+
+	# Create SAM directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
         try:
-		    os.mkdir(Temp_Dir + "\SAM")
+            temp_dir = os.path.join(Temp_Dir, "SAM")
+            os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "SAM Directory already exists " + Temp_Dir)
+            self.log(Level.INFO, "SAM Directory already exists " + temp_dir)
 			
-        # Write out each Event Log file to the temp directory
+        # Write out SAM file to the temp directory
         for file in files:
             
             # Check if the user pressed cancel while we were busy
@@ -159,35 +173,29 @@ class ParseSAMIngestModule(DataSourceIngestModule):
             #self.log(Level.INFO, "Processing file: " + file.getName())
             fileCount += 1
 
-            # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            lclDbPath = os.path.join(Temp_Dir + "\SAM", file.getName())
+            # Save the File locally in the temp folder. use file id as name to reduce collisions
+            lclDbPath = os.path.join(temp_dir, file.getName())
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
 
-        # Example has only a Windows EXE, so bail if we aren't on Windows
-        if not PlatformUtil.isWindowsOS(): 
-            self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-            return IngestModule.ProcessResult.OK
 
         # Run the EXE, saving output to a sqlite database
-        self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "  Parm 2 ==> " + Temp_Dir + "\\SAM.db3")
-        subprocess.Popen([self.path_to_exe, Temp_Dir + "\\SAM\\SAM", Temp_Dir + "\\SAM.db3"]).communicate()[0]   
+        sam_database = os.path.join(temp_dir, "SAM.db3")
+        sam_file = os.path.join(temp_dir, "SAM")
+        self.log(Level.INFO, self.path_to_exe + " " + sam_file + " " + sam_database)
+        subprocess.Popen([self.path_to_exe, sam_file, sam_database]).communicate()[0]   
                
+        # Extract data from the database and create attributes
         for file in files:	
            # Open the DB using JDBC
-           lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "SAM.db3")
-           #lclDbPath = "C:\\Users\\Forensic_User\\OneDrive\\Code\\Python_Scripts\\SRUDB\SRUDB.DB3"
-           self.log(Level.INFO, "Path the SAM database file created ==> " + lclDbPath)
+           self.log(Level.INFO, "Path the SAM database file created ==> " + sam_database)
            try: 
                Class.forName("org.sqlite.JDBC").newInstance()
-               dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % lclDbPath)
+               dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % sam_database)
            except SQLException as e:
-               self.log(Level.INFO, "Could not open database file (not SQLite) " + file.getName() + " (" + e.getMessage() + ")")
+               self.log(Level.INFO, "Could not open database file (not SQLite) " + sam_database + " (" + e.getMessage() + ")")
                return IngestModule.ProcessResult.OK
             
-           #PSlsit => TSK_PROG_RUN
-	       #
-		
            # Query the contacts table in the database and get all columns. 
            try:
                stmt = dbConn.createStatement()
@@ -197,15 +205,6 @@ class ParseSAMIngestModule(DataSourceIngestModule):
                self.log(Level.INFO, "Error querying database for SAM table (" + e.getMessage() + ")")
                return IngestModule.ProcessResult.OK
 
-           try:
-                self.log(Level.INFO, "Begin Create New Artifacts")
-                artID_sam = skCase.addArtifactType( "TSK_SAM", "SAM File")
-           except:		
-                self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
-
-           artID_sam = skCase.getArtifactTypeID("TSK_SAM")
-           artID_sam_evt = skCase.getArtifactType("TSK_SAM")
-             
              
            # Cycle through each row and create artifacts
            while resultSet.next():
@@ -232,7 +231,7 @@ class ParseSAMIngestModule(DataSourceIngestModule):
                               self.log(Level.INFO, "Attributes Creation Error, " + resultSet2.getString("name") + " ==> ")
                       else:
                           try:
-                              attID_ex1 = skCase.addArtifactAttributeType("TSK_" + resultSet2.getString("name").upper(), BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, resultSet2.getString("name"))
+                              attID_ex1 = skCase.addArtifactAttributeType("TSK_" + resultSet2.getString("name").upper(), BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.LONG, resultSet2.getString("name"))
                               #self.log(Level.INFO, "attribure id for " + "TSK_" + resultSet2.getString("name") + " == " + str(attID_ex1))
                           except:		
                               self.log(Level.INFO, "Attributes Creation Error, " + resultSet2.getString("name") + " ==> ")
@@ -261,18 +260,21 @@ class ParseSAMIngestModule(DataSourceIngestModule):
            stmt.close()
            dbConn.close()
 
-#        os.remove(lclDbPath)
+        try:
+            os.remove(sam_database)
+        except:
+            self.log(Level.INFO, "Removal of file referenced by lclDbPath not successful")
 			
 		#Clean up EventLog directory and files
-#        for file in files:
-#            try:
-#			    os.remove(Temp_Dir + "\\SAM\\" + file.getName())
-#            except:
-#			    self.log(Level.INFO, "removal of SAM file failed " + Temp_Dir + "\\" + file.getName())
-#        try:
-#             os.rmdir(Temp_Dir + "\\SAM")		
-#        except:
-#		     self.log(Level.INFO, "removal of SAM directory failed " + Temp_Dir)
+        for file in files:
+            try:
+                os.remove(sam_file)
+            except:
+                self.log(Level.INFO, "removal of SAM file failed " + sam_file)
+        try:
+            os.rmdir(temp_dir)		
+        except:
+            self.log(Level.INFO, "removal of SAM directory failed " + temp_dir)
 
         # Fire an event to notify the UI and others that there are new artifacts  
         IngestServices.getInstance().fireModuleDataEvent(

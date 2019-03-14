@@ -31,6 +31,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - Sept 2018
+#   Version 1.1 - Added linux support - Nov 2018
 # 
 
 import jarray
@@ -111,9 +112,14 @@ class ProcessAppxregProgramsIngestModule(DataSourceIngestModule):
 
     def startUp(self, context):
         self.context = context
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "appxreg.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "appxreg.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Appxreg')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         pass
         
     # Where the analysis is done.
