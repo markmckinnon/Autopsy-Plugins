@@ -270,7 +270,7 @@ class Remove_ArtifactsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.local_settings = settings
         self.artifact_list = []
         self.initComponents()
-        #self.customizeComponents()
+        self.customizeComponents()
     
     # Check to see if there are any entries that need to be populated from the database.        
     def checkBoxEvent(self, event):
