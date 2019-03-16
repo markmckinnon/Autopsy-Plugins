@@ -109,9 +109,14 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Prefetch_Parser_Autopsy.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parse_prefetch.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parse_prefetch')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
@@ -150,42 +155,42 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
              self.log(Level.INFO, "Attributes Creation Error, Program Number Runs. ==> ")
 
         try:
-            attID_ex1 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_1", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 1")
+            attID_ex1 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_1", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 1")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 1. ==> ")
 
         try:
-            attID_ex2 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_2", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 2")
+            attID_ex2 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_2", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 2")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 2. ==> ")
 
         try:
-            attID_ex3 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_3", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 3")
+            attID_ex3 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_3", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 3")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 3. ==> ")
 
         try:
-            attID_ex4 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_4", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 4")
+            attID_ex4 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_4", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 4")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 4 ==> ")
 
         try:
-            attID_ex5 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_5", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 5")
+            attID_ex5 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_5", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 5")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 5. ==> ")
 
         try:
-            attID_ex6 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_6", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 6")
+            attID_ex6 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_6", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 6")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 6. ==> ")
 
         try:
-            attID_ex7 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_7", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 7")
+            attID_ex7 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_7", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 7")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 7. ==> ")
 
         try:
-            attID_ex8 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_8", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "PF Execution DTTM 8")
+            attID_ex8 = skCase.addArtifactAttributeType("TSK_PF_EXEC_DTTM_8", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.DATETIME, "PF Execution DTTM 8")
         except:		
              self.log(Level.INFO, "Attributes Creation Error, PF Execution DTTM 8 ==> ")
 
@@ -205,20 +210,6 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
         attID_ex7 = skCase.getAttributeType("TSK_PF_EXEC_DTTM_7")
         attID_ex8 = skCase.getAttributeType("TSK_PF_EXEC_DTTM_8")
 
-        # Uncomment for debugging purposes, not normally needed
-        # self.log(Level.INFO, "Artifact id for TSK_PREFETCH ==> " + str(artID_pf))
-        # self.log(Level.INFO, "Attribute id for TSK_PREFETCH_FILE_NAME ==> " + str(attID_pf_fn))
-        # self.log(Level.INFO, "Attribute id for TSK_PREFETCH_ACTUAL_FILE_NAME ==> " + str(attID_pf_an))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_RUN_COUNT ==> " + str(attID_nr))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_1 ==> " + str(attID_ex1))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_2 ==> " + str(attID_ex2))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_3 ==> " + str(attID_ex3))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_4 ==> " + str(attID_ex4))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_5 ==> " + str(attID_ex5))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_6 ==> " + str(attID_ex6))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_7 ==> " + str(attID_ex7))
-        # self.log(Level.INFO, "Attribute id for TSK_PF_EXEC_DTTM_8 ==> " + str(attID_ex8))
-
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
         
@@ -232,7 +223,7 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
         fileCount = 0;
 		
         # Create prefetch directory in temp directory, if it exists then continue on processing		
-        Temp_Dir = Case.getCurrentCase().getTempDirectory() + "\Prefetch_Files"
+        Temp_Dir = os.path.join(Case.getCurrentCase().getTempDirectory(),  "Prefetch_Files")
         self.log(Level.INFO, "create Directory " + Temp_Dir)
         try:
 		    os.mkdir(Temp_Dir)
@@ -254,17 +245,12 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
 
-        # Example has only a Windows EXE, so bail if we aren't on Windows
-        if not PlatformUtil.isWindowsOS(): 
-            self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-            return IngestModule.ProcessResult.OK
-
         # Run the EXE, saving output to a sqlite database
         self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "  Parm 2 ==> " + Case.getCurrentCase().getTempDirectory())
-        subprocess.Popen([self.path_to_exe, Temp_Dir, Case.getCurrentCase().getTempDirectory()]).communicate()[0]   
+        subprocess.Popen([self.path_to_exe, Temp_Dir, os.path.join(Temp_Dir, "Autopsy_PF_DB.db3")]).communicate()[0]   
 			
         # Set the database to be read to the once created by the prefetch parser program
-        lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "Autopsy_PF_DB.db3")
+        lclDbPath = os.path.join(Temp_Dir, "Autopsy_PF_DB.db3")
         self.log(Level.INFO, "Path the prefetch database file created ==> " + lclDbPath)
                         
         # Open the DB using JDBC
@@ -299,14 +285,14 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
                 Prefetch_File_Name  = resultSet.getString("Prefetch_File_Name")
                 Actual_File_Name = resultSet.getString("Actual_File_Name")
                 Number_Of_Runs = resultSet.getString("Number_Time_File_Run")
-                Time_1 = resultSet.getString("Embeded_date_Time_Unix_1")
-                Time_2 = resultSet.getString("Embeded_date_Time_Unix_2")
-                Time_3 = resultSet.getString("Embeded_date_Time_Unix_3")
-                Time_4 = resultSet.getString("Embeded_date_Time_Unix_4")
-                Time_5 = resultSet.getString("Embeded_date_Time_Unix_5")
-                Time_6 = resultSet.getString("Embeded_date_Time_Unix_6")
-                Time_7 = resultSet.getString("Embeded_date_Time_Unix_7")
-                Time_8 = resultSet.getString("Embeded_date_Time_Unix_8")
+                Time_1 = resultSet.getInt("Embeded_date_Time_Unix_1")
+                Time_2 = resultSet.getInt("Embeded_date_Time_Unix_2")
+                Time_3 = resultSet.getInt("Embeded_date_Time_Unix_3")
+                Time_4 = resultSet.getInt("Embeded_date_Time_Unix_4")
+                Time_5 = resultSet.getInt("Embeded_date_Time_Unix_5")
+                Time_6 = resultSet.getInt("Embeded_date_Time_Unix_6")
+                Time_7 = resultSet.getInt("Embeded_date_Time_Unix_7")
+                Time_8 = resultSet.getInt("Embeded_date_Time_Unix_8")
             except SQLException as e:
                 self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
 
@@ -341,11 +327,10 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
         dbConn.close()
         os.remove(lclDbPath)
 
-			
 		#Clean up prefetch directory and files
         for file in files:
             try:
-			    os.remove(Temp_Dir + "\\" + file.getName())
+			    os.remove(os.path.join(Temp_Dir, file.getName()))
             except:
 			    self.log(Level.INFO, "removal of prefetch file failed " + Temp_Dir + "\\" + file.getName())
         try:

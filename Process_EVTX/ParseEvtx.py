@@ -37,6 +37,7 @@
 #   version 1.2 - Add check to see if any event logs were selected, if not error out gracefully and submit message.
 #   version 1.3 - Add Long Tail Extracted view and change event log identifier to long value type
 #   version 1.4 - add support for Linux
+#   Version 1.5 - FIx option Panel
 
 import jarray
 import inspect
@@ -72,7 +73,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -100,19 +101,20 @@ class ParseEvtxDbIngestModuleFactory(IngestModuleFactoryAdapter):
     def getModuleDescription(self):
         return "Parses EVTX files"
     
+    
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.5"
     
     def getDefaultIngestJobSettings(self):
-        return Process_EVTX1WithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, Process_EVTX1WithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return Process_EVTX1WithUISettingsPanel(self.settings)
 
@@ -121,7 +123,7 @@ class ParseEvtxDbIngestModuleFactory(IngestModuleFactoryAdapter):
 
     def createDataSourceIngestModule(self, ingestOptions):
         return ParseEvtxDbIngestModule(self.settings)
-
+ 
 # Data Source-level ingest module.  One gets created per data source.
 class ParseEvtxDbIngestModule(DataSourceIngestModule):
 
@@ -152,32 +154,25 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Export_EVTX")
             if not os.path.exists(self.path_to_exe):
                 raise IngestModuleException("Linux executable was not found in module folder")
-
+ 
         
-        if self.local_settings.getFlag():
+        if self.local_settings.getSetting('All') == 'true':
             self.List_Of_Events.append('ALL')
             #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", "All Events CHecked")
         else:
             #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", "No Boxes Checked")
-            if self.local_settings.getFlag1():
+            if self.local_settings.getSetting('Application') == 'true':
                 self.List_Of_Events.append('Application.Evtx')
-            if self.local_settings.getFlag2():
+            if self.local_settings.getSetting('Security') == 'true':
                 self.List_Of_Events.append('Security.Evtx')
-            if self.local_settings.getFlag3():
+            if self.local_settings.getSetting('System') == 'true':
                 self.List_Of_Events.append('System.Evtx')
-            if self.local_settings.getFlag4():
+            if self.local_settings.getSetting('Other') == 'true':
                 self.List_Of_Events.append('Other')
-                Event_List = self.local_settings.getArea().split()
+                Event_List = self.local_settings.getSetting('EventLogs').split()
                 for evt in Event_List:
                    self.List_Of_Events.append(str(evt))
              
-        #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", str(self.List_Of_Events))
-        # self.log(Level.INFO, "List Of Events ==> " + str(self.List_Of_Events) + " <== Number of Events ==> " + str(len(self.List_Of_Events)))
-        # if len(self.List_Of_Events) < 1:
-            # message = IngestMessage.createMessage(IngestMessage.MessageType.DATA, "ParseEvtx", " No Event Logs Selected to Parse " )
-            # IngestServices.getInstance().postMessage(message)
-            # raise IngestModuleException("No Events were Selected")
-        
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
         pass
@@ -293,21 +288,6 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             attID_ev_dt = skCase.getAttributeType("TSK_EVTX_EVENT_DETAIL_TEXT")
             attID_ev_cnt = skCase.getAttributeType("TSK_EVTX_EVENT_ID_COUNT")
             
-            #self.log(Level.INFO, "Artifact id for TSK_PREFETCH ==> " + str(artID_pf))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_FILE_NAME ==> " + str(attID_ev_fn))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_RECOVERED_RECORD ==> " + str(attID_ev_rc))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_COMPUTER_NAME ==> " + str(attID_ev_cn))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_EVENT_IDENTIFIER ==> " + str(attID_ev_ei))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_EVENT_IDENTIFIER_QUALIFERS ==> " + str(attID_ev_eiq))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_EVENT_LEVEL ==> " + str(attID_ev_el))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_OFFSET_IN_FILE ==> " + str(attID_ev_oif))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_IDENTIFIER ==> " + str(attID_ev_id))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_SOURCE_NAME ==> " + str(attID_ev_sn))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_USER_SECURITY_ID ==> " + str(attID_ev_usi))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_EVENT_TIME ==> " + str(attID_ev_et))
-            # self.log(Level.INFO, "Attribute id for TSK_EVTX_EVENT_TIME_EPOCH ==> " + str(attID_ev_ete))
-            # self.log(Level.INFO, "Attribute id for TSK_EVXT_EVENT_DETAIL_TEXT ==> " + str(attID_ev_dt))
-
             # we don't know how much work there is yet
             progressBar.switchToIndeterminate()
             
@@ -501,60 +481,6 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             
             return IngestModule.ProcessResult.OK
 		
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class Process_EVTX1WithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.flag = False
-        self.flag1 = False
-        self.flag2 = False
-        self.flag3 = False
-        self.flag4 = False
-        self.area = ""
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # TODO: Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.flag
-
-    def setFlag(self, flag):
-        self.flag = flag
-
-    def getFlag1(self):
-        return self.flag1
-
-    def setFlag1(self, flag1):
-        self.flag1 = flag1
-
-    def getFlag2(self):
-        return self.flag2
-
-    def setFlag2(self, flag2):
-        self.flag2 = flag2
-
-    def getFlag3(self):
-        return self.flag3
-
-    def setFlag3(self, flag3):
-        self.flag3 = flag3
-
-    def getFlag4(self):
-        return self.flag4
-
-    def setFlag4(self, flag4):
-        self.flag4 = flag4
-
-    def getArea(self):
-        return self.area
-
-    def setArea(self, area):
-        self.area = area
-
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
 class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
@@ -578,29 +504,29 @@ class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.checkbox.isSelected():
-            self.local_settings.setFlag(True)
+            self.local_settings.setSetting('All', 'true')
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('All', 'false')
         if self.checkbox1.isSelected():
-            self.local_settings.setFlag1(True)
+            self.local_settings.setSetting('Application', 'true')
         else:
-            self.local_settings.setFlag1(False)
+            self.local_settings.setSetting('Application', 'false')
         if self.checkbox2.isSelected():
-            self.local_settings.setFlag2(True)
+            self.local_settings.setSetting('Security', 'true')
         else:
-            self.local_settings.setFlag2(False)
+            self.local_settings.setSetting('Security', 'false')
         if self.checkbox3.isSelected():
-            self.local_settings.setFlag3(True)
+            self.local_settings.setSetting('System', 'true')
         else:
-            self.local_settings.setFlag3(False)
+            self.local_settings.setSetting('System', 'false')
         if self.checkbox4.isSelected():
-            self.local_settings.setFlag4(True)
-            self.local_settings.setArea(self.area.getText());
+            self.local_settings.setSetting('Other', 'true')
+            self.local_settings.setSetting('EventLogs', self.area.getText())
         else:
-            self.local_settings.setFlag4(False)
+            self.local_settings.setSetting('Other', 'false')
 
     def keyPressed(self, event):
-        self.local_settings.setArea(self.area.getText());
+        self.local_settings.setSetting('EventLogs', self.area.getText())
 
     # TODO: Update this for your UI
     def initComponents(self):
@@ -633,11 +559,12 @@ class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 		
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkbox.setSelected(self.local_settings.getFlag())
-        self.checkbox1.setSelected(self.local_settings.getFlag1())
-        self.checkbox2.setSelected(self.local_settings.getFlag2())
-        self.checkbox3.setSelected(self.local_settings.getFlag3())
-        self.checkbox4.setSelected(self.local_settings.getFlag4())
+        self.checkbox.setSelected(self.local_settings.getSetting('All') == 'true')
+        self.checkbox1.setSelected(self.local_settings.getSetting('Application') == 'true')
+        self.checkbox2.setSelected(self.local_settings.getSetting('Security') == 'true')
+        self.checkbox3.setSelected(self.local_settings.getSetting('System') == 'true')
+        self.checkbox4.setSelected(self.local_settings.getSetting('Other') == 'true')
+        self.area.setText(self.local_settings.getSetting('EventLogs'))
 
     # Return the settings used
     def getSettings(self):
