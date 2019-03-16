@@ -115,9 +115,15 @@ class ParseUsnJIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parseusn.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parseusn.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parseusn')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
+        
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -145,10 +151,11 @@ class ParseUsnJIngestModule(DataSourceIngestModule):
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "usnj")
         try:
-		    os.mkdir(Temp_Dir + "/usnj")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "Usnj Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "Usnj Directory already exists " + temp_dir)
 			
         for file in files:	
            # Check if the user pressed cancel while we were busy
@@ -159,24 +166,20 @@ class ParseUsnJIngestModule(DataSourceIngestModule):
            fileCount += 1
 
            # Save the DB locally in the temp folder. use file id as name to reduce collisions
-           lclDbPath = os.path.join(Temp_Dir + "\\usnj\\", "usnj.txt")
+           lclDbPath = os.path.join(temp_dir, "usnj.txt")
            ContentUtils.writeToFile(file, File(lclDbPath))
            self.log(Level.INFO, "Saved File ==> " + lclDbPath)
-
-           if not PlatformUtil.isWindowsOS(): 
-               self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-               return IngestModule.ProcessResult.OK
 
            # Run the EXE, saving output to a sqlite database
            #try:
            self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + Temp_Dir + "\\usnj\\usnj.txt" + \
                     " " + Temp_Dir + "\\usnj.db3")
-           pipe = Popen([self.path_to_exe, Temp_Dir + "\\usnj\\usnj.txt", Temp_Dir + "\\usnj.db3"], stdout=PIPE, stderr=PIPE)
+           pipe = Popen([self.path_to_exe, os.path.join(temp_dir, "usnj.txt"), os.path.join(temp_dir, "usnj.db3")], stdout=PIPE, stderr=PIPE)
            out_text = pipe.communicate()[0]
            self.log(Level.INFO, "Output from run is ==> " + out_text)               
                
            # Open the DB using JDBC
-           lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "usnj.db3")
+           lclDbPath = os.path.join(temp_dir, "usnj.db3")
            self.log(Level.INFO, "Path the system database file created ==> " + lclDbPath)
            
            try: 
@@ -204,11 +207,14 @@ class ParseUsnJIngestModule(DataSourceIngestModule):
            artID_usnj = skCase.getArtifactTypeID("TSK_USNJ")
            artID_usnj_evt = skCase.getArtifactType("TSK_USNJ")
              
+           #self.log(Level.INFO, "get artifacts ID's " + str(artID_usnj))
+           #self.log(Level.INFO, "get artifacts ID's " + str(resultSet))
+           
              
            # Cycle through each row and create artifacts
            while resultSet.next():
                try: 
-                   self.log(Level.INFO, "Result (" + resultSet.getString("tbl_name") + ")")
+                   #self.log(Level.INFO, "Result (" + resultSet.getString("tbl_name") + ")")
                    table_name = resultSet.getString("tbl_name")
                    #self.log(Level.INFO, "Result get information from table " + resultSet.getString("tbl_name") + " ")
                    SQL_String_1 = "Select * from " + table_name + ";"
@@ -253,7 +259,7 @@ class ParseUsnJIngestModule(DataSourceIngestModule):
                          Column_Number = Column_Number + 1
 						
                except SQLException as e:
-                   self.log(Level.INFO, "Error getting values from Shimcache table (" + e.getMessage() + ")")
+                   self.log(Level.INFO, "Error getting values from usnj table (" + e.getMessage() + ")")
 
         # Clean up
            stmt.close()
@@ -263,23 +269,23 @@ class ParseUsnJIngestModule(DataSourceIngestModule):
                ModuleDataEvent(ParseUsnJIngestModuleFactory.moduleName, artID_usnj_evt, None))
 
 		#Clean up EventLog directory and files
-        os.remove(lclDbPath)
-        try:
-		   os.remove(Temp_Dir + "\\usnj\\usnj.txt")
-        except:
-		   self.log(Level.INFO, "removal of usnj.txt file failed " + Temp_Dir + "\\" + file.getName())
-        try:
-             os.rmdir(Temp_Dir + "\\usnj")		
-        except:
-		     self.log(Level.INFO, "removal of usnj directory failed " + Temp_Dir)
+           os.remove(lclDbPath)
+           try:
+		      os.remove(os.path.join(temp_dir, "usnj.txt"))
+           except:
+		      self.log(Level.INFO, "removal of usnj.txt file failed " + temp_dir + "\\" + file.getName())
+           try:
+              os.rmdir(temp_dir)		
+           except:
+		      self.log(Level.INFO, "removal of usnj directory failed " + temp_dir)
 
         # After all databases, post a message to the ingest messages in box.
-        message = IngestMessage.createMessage(IngestMessage.MessageType.DATA, "Usnj Parser", " Usnj Has Been Analyzed " )
-        IngestServices.getInstance().postMessage(message)
+           message = IngestMessage.createMessage(IngestMessage.MessageType.DATA, "Usnj Parser", " Usnj Has Been Analyzed " )
+           IngestServices.getInstance().postMessage(message)
 
         # Fire an event to notify the UI and others that there are new artifacts  
-        IngestServices.getInstance().fireModuleDataEvent(
-            ModuleDataEvent(ParseUsnJIngestModuleFactory.moduleName, artID_usnj_evt, None))
+           IngestServices.getInstance().fireModuleDataEvent(
+               ModuleDataEvent(ParseUsnJIngestModuleFactory.moduleName, artID_usnj_evt, None))
         
         return IngestModule.ProcessResult.OK                
 		

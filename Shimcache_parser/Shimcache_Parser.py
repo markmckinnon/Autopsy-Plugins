@@ -34,6 +34,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - Sept 2016
+#   Version 1.1 - Support for Linux
 # 
 
 import jarray
@@ -115,9 +116,14 @@ class ParseShimcacheIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shimcache_parser.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shimcache_parser.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Shimcache_parser")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -145,28 +151,12 @@ class ParseShimcacheIngestModule(DataSourceIngestModule):
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "Shimcache")
         try:
-		    os.mkdir(Temp_Dir + "/Shimcache")
+		    os.mkdir(temp_dir)
         except:
 		    self.log(Level.INFO, "Shimcache Directory already exists " + Temp_Dir)
 			
-        # Write out each Event Log file to the temp directory
-        # for file in files:
-            
-            #Check if the user pressed cancel while we were busy
-            # if self.context.isJobCancelled():
-                # return IngestModule.ProcessResult.OK
-
-            #self.log(Level.INFO, "Processing file: " + file.getName())
-            # fileCount += 1
-
-            #Save the DB locally in the temp folder. use file id as name to reduce collisions
-            # lclDbPath = os.path.join(Temp_Dir + "\\Shimcache\\", file.getName() + "-" + str(file.getId()))
-            # ContentUtils.writeToFile(file, File(lclDbPath))
-            # self.log(Level.INFO, "Saved File ==> " + lclDbPath)
-
-        # Example has only a Windows EXE, so bail if we aren't on Windows
-               
         for file in files:	
            # Check if the user pressed cancel while we were busy
            if self.context.isJobCancelled():
@@ -176,13 +166,9 @@ class ParseShimcacheIngestModule(DataSourceIngestModule):
            fileCount += 1
 
            # Save the DB locally in the temp folder. use file id as name to reduce collisions
-           lclDbPath = os.path.join(Temp_Dir + "\\Shimcache\\", file.getName())
+           lclDbPath = os.path.join(temp_dir, file.getName())
            ContentUtils.writeToFile(file, File(lclDbPath))
            self.log(Level.INFO, "Saved File ==> " + lclDbPath)
-
-           if not PlatformUtil.isWindowsOS(): 
-               self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-               return IngestModule.ProcessResult.OK
 
            # Run the EXE, saving output to a sqlite database
            #try:
@@ -190,17 +176,16 @@ class ParseShimcacheIngestModule(DataSourceIngestModule):
 #                    file.getName() + " -o " + Temp_Dir + "\\Shimcache_db.db3")
 #           pipe = Popen([self.path_to_exe, "-i " + Temp_Dir + "\\Shimcache\\" + file.getName(), "-o " + Temp_Dir + \
 #                         "\\Shimcache_db.db3"], stdout=PIPE, stderr=PIPE)
-           self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + Temp_Dir + "\\Shimcache\\" + \
-                    file.getName() + " " + Temp_Dir + "\\Shimcache_db.db3")
-           pipe = Popen([self.path_to_exe, Temp_Dir + "\\Shimcache\\" + file.getName(), Temp_Dir + \
-                         "\\Shimcache_db.db3"], stdout=PIPE, stderr=PIPE)
+           self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + Temp_Dir + "//Shimcache//" + \
+                    file.getName() + " " + Temp_Dir + "//Shimcache_db.db3")
+           pipe = Popen([self.path_to_exe, os.path.join(temp_dir, file.getName()), os.path.join(temp_dir, "Shimcache_db.db3")], stdout=PIPE, stderr=PIPE)
            out_text = pipe.communicate()[0]
            self.log(Level.INFO, "Output from run is ==> " + out_text)               
            #except:
            #    self.log(Level.INFO, "Error running program shimcache_parser.")
                
            # Open the DB using JDBC
-           lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "Shimcache_db.db3")
+           lclDbPath = os.path.join(temp_dir, "Shimcache_db.db3")
            self.log(Level.INFO, "Path the system database file created ==> " + lclDbPath)
            
            try: 
@@ -287,14 +272,18 @@ class ParseShimcacheIngestModule(DataSourceIngestModule):
                ModuleDataEvent(ParseShimcacheIngestModuleFactory.moduleName, artID_shim_evt, None))
 
 		#Clean up EventLog directory and files
-        os.remove(lclDbPath)
+           try:
+               os.remove(lclDbPath)
+           except:
+               self.log(Level.INFO, "removal of Shimcache tempdb failed " + lclDbPath)
+                    
         for file in files:
            try:
-              os.remove(Temp_Dir + "\\Shimcache\\" + file.getName())
+              os.remove(os.path.join(temp_dir, file.getName()))
            except:
 			  self.log(Level.INFO, "removal of Shimcache file failed " + Temp_Dir + "\\" + file.getName())
         try:
-           os.rmdir(Temp_Dir + "\\Shimcache")		
+           os.rmdir(temp_dir)		
         except:
 		   self.log(Level.INFO, "removal of Shimcache directory failed " + Temp_Dir)
 
@@ -302,10 +291,6 @@ class ParseShimcacheIngestModule(DataSourceIngestModule):
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
             "Shimcache Parser", " Shimcache Has Been Analyzed " )
         IngestServices.getInstance().postMessage(message)
-
-        # Fire an event to notify the UI and others that there are new artifacts  
-        IngestServices.getInstance().fireModuleDataEvent(
-            ModuleDataEvent(ParseShimcacheIngestModuleFactory.moduleName, artID_shim_evt, None))
-        
+ 
         return IngestModule.ProcessResult.OK                
 		

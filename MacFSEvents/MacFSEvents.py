@@ -74,8 +74,6 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
 from org.sleuthkit.autopsy.ingest import ModuleDataEvent
@@ -105,18 +103,6 @@ class MacFSEventsIngestModuleFactory(IngestModuleFactoryAdapter):
     def getModuleVersionNumber(self):
         return "1.0"
     
-    def getDefaultIngestJobSettings(self):
-        return MacFSEventsSettingsWithUISettings()
-
-    def hasIngestJobSettingsPanel(self):
-        return True
-
-    def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, MacFSEventsSettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
-        self.settings = settings
-        return MacFSEventsSettingsWithUISettingsPanel(self.settings)
-
     def isDataSourceIngestModuleFactory(self):
         return True
 
@@ -130,7 +116,6 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
 
     def log(self, level, msg):
         self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
-
     def __init__(self, settings):
         self.context = None
         self.local_settings = settings
@@ -148,27 +133,18 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
         self.context = context
 
         #Show parameters that are passed in
-        self.MacFSEvents_Executable = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fseparser_v2.1.exe")
-        self.Plugins = self.local_settings.getPluginListBox()
-        
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fseparser_v2.1.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "FSEParser_V2.1")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
+
+        self.MacFSEvents_Executable = self.path_to_exe
         self.log(Level.INFO, "MacFSEvents Executable ==> " + self.MacFSEvents_Executable)
-        self.log(Level.INFO, "MacFSEvents Plugins to use ==> " + str(self.Plugins))
    
-        # for plugin in self.Plugins:
-            # if plugin in self.Plugins_for_SQL:
-                # self.Plugins_for_SQL(plugin)
-            # if plugin_count < len(self.Plugins):
-            
-        # plugin_count = 0
-        # for plugin in self.Plugins_for_SQL:
-            # self.Plugin_Like_Stmt = self.Plugin_Like_Stmt + " mask like '%" + plugin + "%' "
-            # if plugin_count < len(self.Plugins):
-                # self.Plugin_Like_Stmt = Self.Plugin_Like_Stmt + " or "                        
-   
-        # Check to see if the file to execute exists, if it does not then raise an exception and log error
-        # data is taken from the UI
-        if not os.path.exists(self.MacFSEvents_Executable):
-            raise IngestModuleException("FSEvents File to Run/execute does not exist.")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -188,10 +164,11 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
         
         # Get the temp directory and create the sub directory
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
+        temp_dir = os.path.join(Temp_Dir, "MacFSEvents")
         try:
-		    os.mkdir(Temp_Dir + "\MacFSEvents")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "FSEvents Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "FSEvents Directory already exists " + temp_dir)
 
         # Set the database to be read to the once created by the prefetch parser program
         skCase = Case.getCurrentCase().getSleuthkitCase();
@@ -210,23 +187,23 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
                     return IngestModule.ProcessResult.OK
 
                 # Save the DB locally in the temp folder. use file id as name to reduce collisions
-                filePath = os.path.join(Temp_Dir + "\MacFSEvents", file.getName())
+                filePath = os.path.join(temp_dir, file.getName())
                 ContentUtils.writeToFile(file, File(filePath))
 
         
         self.log(Level.INFO, "Number of files to process ==> " + str(numFiles))
-        self.log(Level.INFO, "Running program ==> " + self.MacFSEvents_Executable + " -c Autopsy " + "-o " + Temp_Dir + \
+        self.log(Level.INFO, "Running program ==> " + self.MacFSEvents_Executable + " -c Autopsy " + "-o " + temp_dir + \
                              " -s " + Temp_Dir + "\MacFSEvents")
-        pipe = Popen([self.MacFSEvents_Executable, "-c", "Autopsy", "-o", Temp_Dir, "-s", Temp_Dir + "\MacFSEvents"], stdout=PIPE, stderr=PIPE)
+        pipe = Popen([self.MacFSEvents_Executable, "-c", "Autopsy", "-o", temp_dir, "-s", temp_dir], stdout=PIPE, stderr=PIPE)
         out_text = pipe.communicate()[0]
         self.log(Level.INFO, "Output from run is ==> " + out_text)               
 
-        database_file = Temp_Dir + "\\autopsy_FSEvents-Parsed_Records_DB.sqlite" 
+        database_file = os.path.join(temp_dir, "Autopsy_FSEvents-Parsed_Records_DB.sqlite") 
         
         #open the database to get the SQL and artifact info out of
         try: 
             head, tail = os.path.split(os.path.abspath(__file__)) 
-            settings_db = head + "\\fsevents_sql.db3"
+            settings_db = os.path.join(head, "fsevents_sql.db3")
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn1 = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
         except SQLException as e:
@@ -272,7 +249,7 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
              
         try: 
             Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % Temp_Dir + "\\autopsy_FSEvents-Parsed_Records_DB.sqlite")
+            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % os.path.join(temp_dir, "Autopsy_FSEvents-Parsed_Records_DB.sqlite"))
         except SQLException as e:
             self.log(Level.INFO, "Could not open database file (not SQLite) " + database_file + " (" + e.getMessage() + ")")
             return IngestModule.ProcessResult.OK
@@ -344,12 +321,12 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
              dbConn.close()
              stmt1.close()
              dbConn1.close()
-             os.remove(Temp_Dir + "\Autopsy_FSEvents-EXCEPTIONS_LOG.txt")		
-             os.remove(Temp_Dir + "\Autopsy_FSEvents-Parsed_Records.tsv")
-             os.remove(Temp_Dir + "\Autopsy_FSEvents-Parsed_Records_DB.sqlite")
-             shutil.rmtree(Temp_Dir + "\MacFSEvents")
+             #os.remove(Temp_Dir + "Autopsy_FSEvents-EXCEPTIONS_LOG.txt")		
+             #os.remove(Temp_Dir + "Autopsy_FSEvents-Parsed_Records.tsv")
+             #os.remove(Temp_Dir + "Autopsy_FSEvents-Parsed_Records_DB.sqlite")
+             shutil.rmtree(temp_dir)
         except:
-		     self.log(Level.INFO, "removal of MacFSEvents imageinfo database failed " + Temp_Dir)
+		     self.log(Level.INFO, "removal of MacFSEvents imageinfo database failed " + temp_dir)
    
         # After all databases, post a message to the ingest messages in box.
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
@@ -360,156 +337,3 @@ class MacFSEventsIngestModule(DataSourceIngestModule):
 		
    
            
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class MacFSEventsSettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Plugins = []
-       
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    def getPluginListBox(self):
-        return self.Plugins
-
-    def setPluginListBox(self, entry):
-        self.Plugins = entry
-        
-    def clearPluginListBox(self):
-        self.Plugins[:] = []
-        
-    
-# UI that is shown to user for each ingest job so they can configure the job.
-# TODO: Rename this
-class MacFSEventsSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
-    # Note, we can't use a self.settings instance variable.
-    # Rather, self.local_settings is used.
-    # https://wiki.python.org/jython/UserGuide#javabean-properties
-    # Jython Introspector generates a property - 'settings' on the basis
-    # of getSettings() defined in this class. Since only getter function
-    # is present, it creates a read-only 'settings' property. This auto-
-    # generated read-only property overshadows the instance-variable -
-    # 'settings'
-    
-    # We get passed in a previous version of the settings so that we can
-    # prepopulate the UI
-    # TODO: Update this for your UI
-    def __init__(self, settings):
-        self.local_settings = settings
-        self.initComponents()
-        self.customizeComponents()
-    
-    def onchange_plugins_lb(self, event):
-        self.local_settings.clearPluginListBox()
-        list_selected = self.Plugin_LB.getSelectedValuesList()
-        self.local_settings.setPluginListBox(list_selected)      
-
-    # Create the initial data fields/layout in the UI
-    def initComponents(self):
-        self.panel0 = JPanel()
-
-        self.rbgPanel0 = ButtonGroup() 
-        self.gbPanel0 = GridBagLayout() 
-        self.gbcPanel0 = GridBagConstraints() 
-        self.panel0.setLayout( self.gbPanel0 ) 
-
-        self.Error_Message = JLabel( "") 
-        self.Error_Message.setEnabled(True)
-        self.gbcPanel0.gridx = 2
-        self.gbcPanel0.gridy = 31
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH
-        self.gbPanel0.setConstraints( self.Error_Message, self.gbcPanel0 ) 
-        self.panel0.add( self.Error_Message ) 
-
-        # self.Label_1 = JLabel("MacFSEvents To Include:")
-        # self.Label_1.setEnabled(True)
-        # self.gbcPanel0.gridx = 2 
-        # self.gbcPanel0.gridy = 1 
-        # self.gbcPanel0.gridwidth = 1 
-        # self.gbcPanel0.gridheight = 1 
-        # self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        # self.gbcPanel0.weightx = 1 
-        # self.gbcPanel0.weighty = 0 
-        # self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        # self.gbPanel0.setConstraints( self.Label_1, self.gbcPanel0 ) 
-        # self.panel0.add( self.Label_1 ) 
-
-        # self.Blank_1 = JLabel( " ") 
-        # self.Blank_1.setEnabled(True)
-        # self.gbcPanel0.gridx = 2 
-        # self.gbcPanel0.gridy = 5
-        # self.gbcPanel0.gridwidth = 1 
-        # self.gbcPanel0.gridheight = 1 
-        # self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        # self.gbcPanel0.weightx = 1 
-        # self.gbcPanel0.weighty = 0 
-        # self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        # self.gbPanel0.setConstraints( self.Blank_1, self.gbcPanel0 ) 
-        # self.panel0.add( self.Blank_1 ) 
-
-        # self.Plugin_list =  ('FolderEvent','Mount','Unmount','EndOfTransaction','LastHardLinkRemoved','HardLink', \
-                             # 'SymbolicLink','FileEvent','PermissionChange','ExtendedAttrModified','ExtendedAttrRemoved', \
-                             # 'DocumentRevisioning','Created','Removed','InodeMetaMod','Renamed','Modified', \
-                             # 'Exchange','FinderInfoMod','FolderCreated')
-        # self.Plugin_LB = JList( self.Plugin_list, valueChanged=self.onchange_plugins_lb)
-        # self.Plugin_LB.setVisibleRowCount( 7 ) 
-        # self.scpPlugin_LB = JScrollPane( self.Plugin_LB ) 
-        # self.gbcPanel0.gridx = 2 
-        # self.gbcPanel0.gridy = 7 
-        # self.gbcPanel0.gridwidth = 1 
-        # self.gbcPanel0.gridheight = 1 
-        # self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        # self.gbcPanel0.weightx = 1 
-        # self.gbcPanel0.weighty = 1 
-        # self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        # self.gbPanel0.setConstraints( self.scpPlugin_LB, self.gbcPanel0 ) 
-        # self.panel0.add( self.scpPlugin_LB ) 
-
-        self.Blank_4 = JLabel( " ") 
-        self.Blank_4.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 17
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_4, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_4 ) 
-
-        # self.Label_3 = JLabel( "Message:") 
-        # self.Label_3.setEnabled(True)
-        # self.gbcPanel0.gridx = 2 
-        # self.gbcPanel0.gridy = 29
-        # self.gbcPanel0.gridwidth = 1 
-        # self.gbcPanel0.gridheight = 1 
-        # self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        # self.gbcPanel0.weightx = 1 
-        # self.gbcPanel0.weighty = 0 
-        # self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        # self.gbPanel0.setConstraints( self.Label_3, self.gbcPanel0 ) 
-        # self.panel0.add( self.Label_3 ) 
-		
-        self.add(self.panel0)
-
-    # Custom load any data field and initialize the values
-    def customizeComponents(self):
-        #self.Exclude_File_Sources_CB.setSelected(self.local_settings.getExclude_File_Sources())
-        #self.Run_Plaso_CB.setSelected(self.local_settings.getRun_Plaso())
-        #self.Import_Plaso_CB.setSelected(self.local_settings.getImport_Plaso())
-        #self.check_Database_entries()
-        pass
-        
-    # Return the settings used
-    def getSettings(self):
-        return self.local_settings
-
