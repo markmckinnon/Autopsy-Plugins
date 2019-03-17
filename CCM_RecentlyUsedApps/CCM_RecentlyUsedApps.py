@@ -112,9 +112,14 @@ class ParseRecentlyUsedAppsIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_recentApps_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "show_ccm_recentlyusedapps.exe")
-        if not os.path.exists(self.path_to_recentApps_exe):
-            raise IngestModuleException("show_ccm_recentlyusedapps.exe was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_recentApps_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "show_ccm_recentlyusedapps.exe")
+            if not os.path.exists(self.path_to_recentApps_exe):
+                raise IngestModuleException("Windows executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_recentApps_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "show_CCM_RecentlyUsedApps")
+            if not os.path.exists(self.path_to_recentApps_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -159,10 +164,11 @@ class ParseRecentlyUsedAppsIngestModule(DataSourceIngestModule):
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "Recently_Used")
         try:
-		    os.mkdir(Temp_Dir + "\Recently_Used")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "Recently Used Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "Recently Used Directory already exists " + temp_dir)
 			
         # Write out each Event Log file to the temp directory
         for file in files:
@@ -178,17 +184,17 @@ class ParseRecentlyUsedAppsIngestModule(DataSourceIngestModule):
                 self.log(Level.INFO, "Parent or Root Directory File not writing")
             else:
                 # Save the DB locally in the temp folder. use file id as name to reduce collisions
-                lclDbPath = os.path.join(Temp_Dir + "\Recently_Used", file.getName())
+                lclDbPath = os.path.join(temp_dir, file.getName())
                 ContentUtils.writeToFile(file, File(lclDbPath))
 
-        self.log(Level.INFO, "Running prog ==> " + self.path_to_recentApps_exe + " win7 " + Temp_Dir + "\Recently_Used " + " " + \
-                                     Temp_Dir + "\Recently_Used\\recentlyUsedApps.db3")
-        pipe = Popen([self.path_to_recentApps_exe, "win7", Temp_Dir + "\Recently_Used", Temp_Dir + "\Recently_Used\\recentlyUsedApps.db3"], stdout=PIPE, stderr=PIPE)
+        self.log(Level.INFO, "Running prog ==> " + self.path_to_recentApps_exe + " win7 " + temp_dir + " " + \
+                                     temp_dir + "\recentlyUsedApps.db3")
+        pipe = Popen([self.path_to_recentApps_exe, "win7", temp_dir, os.path.join(temp_dir, "recentlyUsedApps.db3")], stdout=PIPE, stderr=PIPE)
         
         out_text = pipe.communicate()[0]
         self.log(Level.INFO, "Output from run is ==> " + out_text) 
 
-        lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory() + "\Recently_Used", "recentlyUsedApps.db3")        
+        lclDbPath = os.path.join(temp_dir, "recentlyUsedApps.db3")        
         if ("Exiting" in out_text):
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "CCM Recently Used Apps", " Error in CCM Recently Used Apps module " )
@@ -279,7 +285,7 @@ class ParseRecentlyUsedAppsIngestModule(DataSourceIngestModule):
                if (file.getName() == "OBJECTS.DATA"):
 
                     # Open the DB using JDBC
-                    lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory() + "\Recently_Used", "recentlyUsedApps.db3")
+                    lclDbPath = os.path.join(temp_dir, "recentlyUsedApps.db3")
                     self.log(Level.INFO, "Path the recentlyUsedApps.db3 database file created ==> " + lclDbPath)
                     try: 
                        Class.forName("org.sqlite.JDBC").newInstance()
@@ -382,11 +388,11 @@ class ParseRecentlyUsedAppsIngestModule(DataSourceIngestModule):
 		#Clean up EventLog directory and files
         for file in files:
            try:
-              os.remove(Temp_Dir + "\\Recently_Used" + "\\" + file.getName())
+             os.remove(os.path.join(temp_dir, file.getName()))
            except:
-              self.log(Level.INFO, "removal of Recently Used files failed " + Temp_Dir + "\\" + file.getName())
+              self.log(Level.INFO, "removal of Recently Used files failed " + temp_dir + "\\" + file.getName())
         try:
-           os.rmdir(Temp_Dir + "\Recently_Used")		
+           os.rmdir(temp_dir)		
         except:
-		   self.log(Level.INFO, "removal of recently used directory failed " + Temp_Dir)
+		   self.log(Level.INFO, "removal of recently used directory failed " + temp_dir)
 

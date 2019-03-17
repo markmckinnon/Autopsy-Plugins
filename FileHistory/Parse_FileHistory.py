@@ -33,6 +33,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - April 2017
+#   Version 1.1 - Added Linux Support - November 2017
 # 
 
 import jarray
@@ -109,10 +110,14 @@ class ParseFileHistoryIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_FileHistory.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
-
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_FileHistory.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Export_FileHistory')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
      
     # Where the analysis is done.
     # The 'dataSource' object being passed in is of type org.sleuthkit.datamodel.Content.
@@ -232,7 +237,7 @@ class ParseFileHistoryIngestModule(DataSourceIngestModule):
         fileCount = 0;
 		
         # Create file history directory in temp directory, if it exists then continue on processing		
-        Temp_Dir = Case.getCurrentCase().getTempDirectory() + "\File_History"
+        Temp_Dir = os.path.join(Case.getCurrentCase().getTempDirectory(), "File_History")
         self.log(Level.INFO, "create Directory " + Temp_Dir)
         try:
 		    os.mkdir(Temp_Dir)
@@ -256,9 +261,13 @@ class ParseFileHistoryIngestModule(DataSourceIngestModule):
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
             # Run the EXE, saving output to a sqlite database
-            self.log(Level.INFO, "Running program on data source parm 1 ==> " + self.path_to_exe + " " + lclDbPath + " " + lclSQLPath)
-            pipe = Popen([self.path_to_exe, lclDbPath, lclSQLPath], stdout=PIPE, stderr=PIPE)
-            
+            if PlatformUtil.isWindowsOS():
+                self.log(Level.INFO, "Running program on data source parm 1 ==> " + self.path_to_exe + " " + lclDbPath + " " + lclSQLPath)
+                pipe = Popen([self.path_to_exe, lclDbPath, lclSQLPath], stdout=PIPE, stderr=PIPE)
+            else:
+                self.log(Level.INFO, "Running program on data source parm 1 ==> " + self.path_to_exe + " " + lclDbPath + " " + lclSQLPath)
+                pipe = Popen([self.path_to_exe, lclDbPath, lclSQLPath, os.path.dirname(os.path.abspath(__file__))], stdout=PIPE, stderr=PIPE)
+				
             out_text = pipe.communicate()[0]
             self.log(Level.INFO, "Output from run is ==> " + out_text)                
 		

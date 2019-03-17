@@ -37,6 +37,7 @@
 
 #   Version 1.0 - Initial version - July 2017
 #   Version 1.1 - Add Linux support
+#   Version 1.2 - Fix option panels
 
 import jarray
 import inspect
@@ -72,7 +73,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -104,15 +105,15 @@ class ParseEvtxByEventIDIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return Process_EVTX1WithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, Process_EVTX1WithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return Process_EVTX1WithUISettingsPanel(self.settings)
 
@@ -154,18 +155,18 @@ class ParseEvtxByEventIDIngestModule(DataSourceIngestModule):
             if not os.path.exists(self.path_to_exe):
                 raise IngestModuleException("Linux executable was not found in module folder")
         
-        if self.local_settings.getFlag():
+        if self.local_settings.getSetting('All') == 'true':
             self.List_Of_Events.append('ALL')
             #self.logger.logp(Level.INFO, Process_EVTX1WithUI.__name__, "startUp", "All Events CHecked")
         else:
-            if self.local_settings.getFlag4():
+            if self.local_settings.getSetting('Other') == 'true':
                 #self.List_Of_Events.append('Other')
-                Event_List = self.local_settings.getArea().split()
+                Event_List = self.local_settings.getSetting('Eventids').split()
                 self.log(Level.INFO, "Event List ==> " + str(Event_List))
                 for evt in Event_List:
                    self.List_Of_Events.append(str(evt))
                 #self.Event_Id_List = "','".join(self.List_Of_Events)
-                self.Event_Id_List = self.local_settings.getArea().replace(',','\',\'')
+                self.Event_Id_List = self.local_settings.getSetting('Eventids').replace(',','\',\'')
                 self.Event_Id_List.replace(',','\',\'')
              
         
@@ -488,41 +489,6 @@ class ParseEvtxByEventIDIngestModule(DataSourceIngestModule):
             
             return IngestModule.ProcessResult.OK
 		
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class Process_EVTX1WithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.flag = False
-        self.flag4 = False
-        self.area = ""
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # TODO: Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.flag
-
-    def setFlag(self, flag):
-        self.flag = flag
-
-    def getFlag4(self):
-        return self.flag4
-
-    def setFlag4(self, flag4):
-        self.flag4 = flag4
-
-    def getArea(self):
-        return self.area
-
-    def setArea(self, area):
-        self.area = area
-
-# UI that is shown to user for each ingest job so they can configure the job.
-# TODO: Rename this
 class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -544,19 +510,19 @@ class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.checkbox.isSelected():
-            self.local_settings.setFlag(True)
+            self.local_settings.setSetting('All', 'true')
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('All', 'false')
         if self.checkbox4.isSelected():
-            self.local_settings.setFlag4(True)
-            self.local_settings.setArea(self.area.getText());
+            self.local_settings.setSetting('Other', 'true')
+            self.local_settings.setSetting('Eventids', self.area.getText());
             # self.local_settings.setFlag(False)
             # self.checkbox.setSelected(self.local_settings.getFlag())
         else:
-            self.local_settings.setFlag4(False)
+            self.local_settings.setSetting('Other', 'false')
             
     def keyPressed(self, event):
-        self.local_settings.setArea(self.area.getText());
+        self.local_settings.setArea('Eventids', self.area.getText())
 
     # TODO: Update this for your UI
     def initComponents(self):
@@ -589,8 +555,9 @@ class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 		
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkbox.setSelected(self.local_settings.getFlag())
-        self.checkbox4.setSelected(self.local_settings.getFlag4())
+        self.checkbox.setSelected(self.local_settings.getSetting('All') == 'true')
+        self.checkbox4.setSelected(self.local_settings.getSetting('Other') == 'true')
+        self.area.setText(self.local_settings.getSetting('Eventids'))
 
     # Return the settings used
     def getSettings(self):
