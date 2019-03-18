@@ -65,7 +65,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -97,14 +97,15 @@ class GUI_Test_SQLSettingsIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return GUI_Test_SQLSettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
+    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, GUI_Test_SQLSettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return GUI_Test_SQLSettingsWithUISettingsPanel(self.settings)
 
@@ -135,9 +136,9 @@ class GUI_Test_SQLSettingsIngestModule(DataSourceIngestModule):
 
         # Check to see if the file to execute exists, if it does not then raise an exception and log error
         # data is taken from the UI
-        if self.local_settings.getExec_Prog_Flag():
-            self.log(Level.INFO, self.local_settings.getExecFile())
-            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.local_settings.getExecFile())
+        if self.local_settings.getSetting('Exec_Prog_Flag') == 'true':
+            self.log(Level.INFO, self.local_settings.getSetting('ExecFile'))
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.local_settings.getSetting('ExecFile'))
             if not os.path.exists(self.path_to_exe):
                raise IngestModuleException("File to Run/execute does not exist.")
         
@@ -168,32 +169,6 @@ class GUI_Test_SQLSettingsIngestModule(DataSourceIngestModule):
         return IngestModule.ProcessResult.OK                
 		
 
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class GUI_Test_SQLSettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Exec_Prog_Flag = False
-        self.ExecFile = ""
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getExec_Prog_Flag(self):
-        return self.Exec_Prog_Flag
-
-    def setExec_Prog_Flag(self, flag):
-        self.Exec_Prog_Flag = flag
-
-    def getExecFile(self):
-        return self.ExecFile
-
-    def setExecFile(self, filename):
-        self.ExecFile = filename
-
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
 class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
@@ -217,11 +192,11 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
     # Check the checkboxs to see what actions need to be taken
     def checkBoxEvent(self, event):
         if self.Exec_Program_CB.isSelected():
-            self.local_settings.setExec_Prog_Flag(True)
+            self.local_settings.setSetting('Exec_Prog_Flag', 'true')
             self.Program_Executable_TF.setEnabled(True)
             self.Find_Program_Exec_BTN.setEnabled(True)
         else:
-            self.local_settings.setExec_Prog_Flag(False)
+            self.local_settings.setSetting('Exec_Prog_Flag', 'false')
             self.Program_Executable_TF.setText("")
             self.Program_Executable_TF.setEnabled(False)
             self.Find_Program_Exec_BTN.setEnabled(False)
@@ -229,7 +204,7 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
     # Check to see if there are any entries that need to be populated from the database.        
     def check_Database_entries(self):
         head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
+        settings_db = os.path.join(head, "GUI_Settings.db3")
         try: 
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
@@ -243,8 +218,8 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
            while resultSet.next():
                if resultSet.getString("Setting_Name") == "Program_Exec_Name":
                    self.Program_Executable_TF.setText(resultSet.getString("Setting_Value"))
-                   self.local_settings.setExecFile(resultSet.getString("Setting_Value"))
-                   self.local_settings.setExec_Prog_Flag(True)
+                   self.local_settings.setSetting('ExecFile', resultSet.getString("Setting_Value"))
+                   self.local_settings.setSetting('Exec_Prog_Flag', 'true')
                    self.Exec_Program_CB.setSelected(True)
                    self.Program_Executable_TF.setEnabled(True)
                    self.Find_Program_Exec_BTN.setEnabled(True)
@@ -259,7 +234,7 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
     def SaveSettings(self, e):
         
         head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
+        settings_db = os.path.join(head, "GUI_Settings.db3")
         try: 
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
@@ -274,7 +249,7 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
            resultSet = stmt.executeQuery(SQL_Statement)
            self.Error_Message.setText("Settings Saved")
         except SQLException as e:
-           self.Error_Message.setText("Error Inserting Settings")
+           self.Error_Message.setText("Error Inserting Settings " + str(e))
         stmt.close()
         dbConn.close()
            
@@ -291,7 +266,7 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
            file = chooseFile.getSelectedFile()
            Canonical_file = file.getCanonicalPath()
            #text = self.readPath(file)
-           self.local_settings.setExecFile(Canonical_file)
+           self.local_settings.setSetting('ExecFile', Canonical_file)
            self.Program_Executable_TF.setText(Canonical_file)
 
     # Create the initial data fields/layout in the UI
@@ -412,7 +387,7 @@ class GUI_Test_SQLSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel
 
     # Custom load any data field and initialize the values
     def customizeComponents(self):
-        self.Exec_Program_CB.setSelected(self.local_settings.getExec_Prog_Flag())
+        self.Exec_Program_CB.setSelected(self.local_settings.getSetting('Exec_Prog_Flag') == 'true')
         self.check_Database_entries()
 
     # Return the settings used

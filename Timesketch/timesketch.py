@@ -70,7 +70,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -102,14 +102,14 @@ class TimesketchIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return TimesketchSettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, TimesketchSettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return TimesketchSettingsWithUISettingsPanel(self.settings)
 
@@ -130,12 +130,12 @@ class TimesketchIngestModule(DataSourceIngestModule):
     def __init__(self, settings):
         self.context = None
         self.local_settings = settings
-        self.userName = self.local_settings.getuserName()
-        self.password = self.local_settings.getpassword()
-        self.IP_Address = self.local_settings.getIP_Address()
-        self.Port_Number = self.local_settings.getPort_Number()
-        self.sketchName = self.local_settings.getsketchName()
-        self.sketchDescription = self.local_settings.getsketchDescription()
+        self.userName = self.local_settings.getSetting('userName')
+        self.password = self.local_settings.getSetting('password')
+        self.IP_Address = self.local_settings.getSetting('ipAddress')
+        self.Port_Number = self.local_settings.getSetting('portNumber')
+        self.sketchName = self.local_settings.getSetting('sketchName')
+        self.sketchDescription = self.local_settings.getSetting('sketchDescription')
 
     # Where any setup and configuration is done
     # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
@@ -153,9 +153,14 @@ class TimesketchIngestModule(DataSourceIngestModule):
         
         # Check to see if the file to execute exists, if it does not then raise an exception and log error
         # data is taken from the UI
-        self.path_to_Timesketch_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "timesketch_autopsy.exe")
-        if not os.path.exists(self.path_to_Timesketch_exe):
-            raise IngestModuleException("Timesketch_autopsy.exe was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_Timesketch_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "timesketch_autopsy.exe")
+            if not os.path.exists(self.path_to_Timesketch_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_Timesketch_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Timesketch_Autopsy")
+            if not os.path.exists(self.path_to_Timesketch_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -235,8 +240,16 @@ class TimesketchIngestModule(DataSourceIngestModule):
             artList.append(artifactDict)
         dbquery.close()
 
+        jsonFileNamePath = os.path.join(tempDir, jsonFileName)
+        
+        with open(jsonFileNamePath, 'a') as f:
+            for art in artList:
+                json.dump(art, f)
+                f.write("\n")
+        
         # Get file Times
         fileList = []
+        numFiles = 0
         dbquery = skCase.executeQuery("Select obj_id from tsk_files")
         resultSet = dbquery.getResultSet()
         while resultSet.next():
@@ -275,20 +288,18 @@ class TimesketchIngestModule(DataSourceIngestModule):
                                     fileDict[colHead] = resultSet3.getString(x)
                     dbquery3.close()
                     fileList.append(fileDict)
-
+                    numFiles = numFiles + 1
+                    if numFiles > 1000:
+                        with open(jsonFileNamePath, 'a') as f:
+                            for file in fileList:
+                                json.dump(file, f)
+                                f.write("\n")
+                        numFiles = 0
+                        fileList = []
+                        
             dbquery2.close()        
         dbquery.close()
         
-        jsonFileNamePath = os.path.join(tempDir, jsonFileName)
-        
-        with open(jsonFileNamePath, 'w') as f:
-            for art in artList:
-                json.dump(art, f)
-                f.write("\n")
-            for file in fileList:
-                json.dump(file, f)
-                f.write("\n")
-
         # Check Messages
         # TS001 - Invalid arguments
         # TS002 - Sketch Created
@@ -326,68 +337,6 @@ class TimesketchIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 		
-
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-class TimesketchSettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Port_Number = ""
-        self.IP_Address = ""
-        self.userName = ""
-        self.password = ""
-        self.sketchName = ""
-        self.sketchDescription = ""
-
-        
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getProtocol(self):
-        return self.Protocol
-
-    def setProtocol(self, flag):
-        self.Protocol = flag
-        
-    def getPort_Number(self):
-        return self.Port_Number
-
-    def setPort_Number(self, flag):
-        self.Port_Number = flag
-        
-    def getIP_Address(self):
-        return self.IP_Address
-
-    def setIP_Address(self, flag):
-        self.IP_Address = flag
-        
-    def getuserName(self):
-        return self.userName
-
-    def setuserName(self, flag):
-        self.userName = flag
-        
-    def getpassword(self):
-        return self.password
-
-    def setpassword(self, flag):
-        self.password = flag
-        
-    def getsketchName(self):
-        return self.sketchName
-
-    def setsketchName(self, flag):
-        self.sketchName = flag
-        
-    def getsketchDescription(self):
-        return self.sketchDescription
-
-    def setsketchDescription(self, flag):
-        self.sketchDescription = flag
-        
-    
 # UI that is shown to user for each ingest job so they can configure the job.
 class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
@@ -407,60 +356,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.initComponents()
         self.customizeComponents()
         self.path_to_Timesketch_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Timesketch_api.exe")
- 
-
-    # Check to see if there are any entries that need to be populated from the database.        
-    def check_Database_entries(self):
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\gui_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings DB!")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = 'Select Timesketch_host, Timesketch_port from Timesketch_server' 
-           resultSet = stmt.executeQuery(SQL_Statement)
-           while resultSet.next():
-               self.IP_Address_TF.setText(resultSet.getString("Timesketch_host"))
-               self.Port_Number_TF.setText(resultSet.getString("Timesketch_port"))
-               self.local_settings.setIP_Address(resultSet.getString("Timesketch_host"))
-               self.local_settings.setPort_Number(resultSet.getString("Timesketch_port"))
-           self.Error_Message.setText("Settings Read successfully!")
-        except SQLException as e:
-            self.Error_Message.setText("Error Reading Settings Database")
-
-        stmt.close()
-        dbConn.close()
-
-    # Save entries from the GUI to the database.
-    def SaveSettings(self, e):
-        
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = ""
-           SQL_Statement = 'Update Timesketch_server set Timesketch_Host = "' + self.IP_Address_TF.getText() + '", ' + \
-                               '                     Timesketch_port = "' + self.Port_Number_TF.getText() + '";' 
-           
-           #self.Error_Message.setText(SQL_Statement)
-           stmt.execute(SQL_Statement)
-           self.Error_Message.setText("Timesketch settings Saved")
-           #self.local_settings.setTimesketch_Directory(self.Program_Executable_TF.getText())
-        except SQLException as e:
-           self.Error_Message.setText(e.getMessage())
-        stmt.close()
-        dbConn.close()
-           
+            
     # Check to see if the Timesketch server is available and you can talk to it
     def Check_Server(self, e):
 
@@ -471,17 +367,23 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
        #self.log(Level.INFO, "Timesketch Status is ==> " + out_text)
 
            
+    def setIPAddress(self, event):
+        self.local_settings.setSetting('ipAddress', self.IP_Address_TF.getText()) 
+
+    def setPortNumber(self, event):
+        self.local_settings.setSetting('portNumber', self.Port_Number_TF.getText()) 
+
     def setUserName(self, event):
-        self.local_settings.setuserName(self.userName_TF.getText()) 
+        self.local_settings.setSetting('userName', self.userName_TF.getText()) 
 
     def setPassword(self, event):
-        self.local_settings.setpassword(self.password_TF.getText()) 
+        self.local_settings.setSetting('password', self.password_TF.getText()) 
 
     def setsketchName(self, event):
-        self.local_settings.setsketchName(self.sketchName_TF.getText()) 
+        self.local_settings.setSetting('sketchName', self.sketchName_TF.getText()) 
 
     def setsketchDescription(self, event):
-        self.local_settings.setsketchDescription(self.sketchDescription_TF.getText()) 
+        self.local_settings.setSetting('sketchDescription', self.sketchDescription_TF.getText()) 
 
     # Create the initial data fields/layout in the UI
     def initComponents(self):
@@ -505,7 +407,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_2, self.gbcPanel0 ) 
         self.panel0.add( self.Label_2 ) 
 
-        self.IP_Address_TF = JTextField(20) 
+        self.IP_Address_TF = JTextField(20, focusLost=self.setIPAddress) 
         self.IP_Address_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
         self.gbcPanel0.gridy = 5 
@@ -544,7 +446,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_3, self.gbcPanel0 ) 
         self.panel0.add( self.Label_3 ) 
 
-        self.Port_Number_TF = JTextField(20) 
+        self.Port_Number_TF = JTextField(20, focusLost=self.setPortNumber) 
         self.Port_Number_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
         self.gbcPanel0.gridy = 9 
@@ -570,37 +472,10 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Blank_3, self.gbcPanel0 ) 
         self.panel0.add( self.Blank_3 ) 
         
-        self.Save_Settings_BTN = JButton( "Save Setup", actionPerformed=self.SaveSettings) 
-        self.Save_Settings_BTN.setEnabled(True)
-        self.rbgPanel0.add( self.Save_Settings_BTN ) 
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 13
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Save_Settings_BTN, self.gbcPanel0 ) 
-        self.panel0.add( self.Save_Settings_BTN ) 
-
-        self.Blank_X = JLabel( " ") 
-        self.Blank_X.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 15
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_X, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_X ) 
-
         self.Label_4 = JLabel("User Name")
         self.Label_4.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 17 
+        self.gbcPanel0.gridy = 13 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -613,7 +488,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.userName_TF = JTextField(20, focusLost=self.setUserName) 
         self.userName_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
-        self.gbcPanel0.gridy = 17 
+        self.gbcPanel0.gridy = 13 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -626,7 +501,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_4 = JLabel( " ") 
         self.Blank_4.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 19
+        self.gbcPanel0.gridy = 15
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -639,7 +514,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Label_5 = JLabel("Password")
         self.Label_5.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 21 
+        self.gbcPanel0.gridy = 17 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -653,7 +528,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 #        self.password_TF = JTextField(20) 
         self.password_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
-        self.gbcPanel0.gridy = 21 
+        self.gbcPanel0.gridy = 17 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -666,7 +541,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_5 = JLabel( " ") 
         self.Blank_5.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 23
+        self.gbcPanel0.gridy = 19
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -679,7 +554,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Label_6 = JLabel("Sketch Name")
         self.Label_6.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 25 
+        self.gbcPanel0.gridy = 21 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -692,7 +567,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.sketchName_TF = JTextField(20, focusLost=self.setsketchName) 
         self.sketchName_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
-        self.gbcPanel0.gridy = 25 
+        self.gbcPanel0.gridy = 21 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -705,7 +580,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_6 = JLabel( " ") 
         self.Blank_6.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 27
+        self.gbcPanel0.gridy = 23
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -718,7 +593,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Label_7 = JLabel("Sketch Description")
         self.Label_7.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 29 
+        self.gbcPanel0.gridy = 25 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -731,7 +606,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.sketchDescription_TF = JTextField(20, focusLost=self.setsketchDescription) 
         self.sketchDescription_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
-        self.gbcPanel0.gridy = 29 
+        self.gbcPanel0.gridy = 25 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -744,7 +619,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_7 = JLabel( " ") 
         self.Blank_7.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 31
+        self.gbcPanel0.gridy = 27
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -758,7 +633,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         # self.Check_Server_Status_BTN.setEnabled(True)
         # self.rbgPanel0.add( self.Save_Settings_BTN ) 
         # self.gbcPanel0.gridx = 2 
-        # self.gbcPanel0.gridy = 33
+        # self.gbcPanel0.gridy = 29
         # self.gbcPanel0.gridwidth = 1 
         # self.gbcPanel0.gridheight = 1 
         # self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -771,7 +646,7 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Error_Message = JLabel( "") 
         self.Error_Message.setEnabled(True)
         self.gbcPanel0.gridx = 2
-        self.gbcPanel0.gridy = 35
+        self.gbcPanel0.gridy = 31
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -789,11 +664,15 @@ class TimesketchSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         #self.Exclude_File_Sources_CB.setSelected(self.local_settings.getExclude_File_Sources())
         #self.Run_Timesketch_CB.setSelected(self.local_settings.getRun_Timesketch())
         #self.Import_Timesketch_CB.setSelected(self.local_settings.getImport_Timesketch())
-        self.check_Database_entries()
+        #self.check_Database_entries()
+        self.IP_Address_TF.setText(self.local_settings.getSetting('ipAddress'))
+        self.Port_Number_TF.setText(self.local_settings.getSetting('portNumber'))
+        self.userName_TF.setText(self.local_settings.getSetting('userName'))
+        self.password_TF.setText(self.local_settings.getSetting('password'))
         self.sketchName_TF.setText(Case.getCurrentCase().getNumber())
         self.sketchDescription_TF.setText(Case.getCurrentCase().getName())
-        self.local_settings.setsketchName(self.sketchName_TF.getText()) 
-        self.local_settings.setsketchDescription(self.sketchDescription_TF.getText()) 
+        self.local_settings.setSetting('sketchName', self.sketchName_TF.getText()) 
+        self.local_settings.setSetting('sketchDescription', self.sketchDescription_TF.getText()) 
 
 
     # Return the settings used

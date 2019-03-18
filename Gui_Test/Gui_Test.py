@@ -70,7 +70,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -102,15 +102,15 @@ class GUI_TestIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return GUI_TestWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, GUI_TestWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return GUI_TestWithUISettingsPanel(self.settings)
 
@@ -140,12 +140,12 @@ class GUI_TestIngestModule(DataSourceIngestModule):
         self.context = context
 
         
-        Combo_Box_entry = self.local_settings.getComboBox()
+        Combo_Box_entry = self.local_settings.getSetting('ComboBox')
         self.log(Level.INFO, "Combo Box Entry Starts here =====>")
-        self.log(Level.INFO, self.local_settings.getComboBox())
+        self.log(Level.INFO, self.local_settings.getSetting('ComboBox'))
         self.log(Level.INFO, "<====== Combo Box Entry Ends here")
         
-        list_box_entry = self.local_settings.getListBox()
+        list_box_entry = self.local_settings.getSetting('ListBox').split(",")
         self.log(Level.INFO, "List Box Entry Starts here =====>")
         self.log(Level.INFO, str(list_box_entry))
         for num in range (0, len(list_box_entry)):
@@ -153,15 +153,15 @@ class GUI_TestIngestModule(DataSourceIngestModule):
         self.log(Level.INFO, "<====== List Box Entry Ends here")
 
         # Check to see if the file to import exists, if it does not then raise an exception and log error
-        if self.local_settings.getImp_File_Flag():
-            self.log(Level.INFO, self.local_settings.getFile_Imp_TF())
-            self.path_to_import_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.local_settings.getFile_Imp_TF())
+        if self.local_settings.getSetting('Imp_File_Flag') == 'true':
+            self.log(Level.INFO, self.local_settings.getSetting('File_Imp_TF'))
+            self.path_to_import_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.local_settings.getSetting('File_Imp_TF'))
             if not os.path.exists(self.path_to_import_file):
                raise IngestModuleException("File to import is not available")
         
-        if self.local_settings.getExec_Prog_Flag():
-            self.log(Level.INFO, self.local_settings.getExecFile())
-            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.local_settings.getExecFile())
+        if self.local_settings.getSetting('Exec_Prog_Flag') == 'true':
+            self.log(Level.INFO, self.local_settings.getSetting('ExecFile'))
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.local_settings.getSetting('ExecFile'))
             if not os.path.exists(self.path_to_exe):
                raise IngestModuleException("File to Run/execute does not exist.")
         
@@ -197,69 +197,6 @@ class GUI_TestIngestModule(DataSourceIngestModule):
 		
 
 
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class GUI_TestWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Exec_Prog_Flag = False
-        self.Imp_File_Flag = False
-        self.Check_Box_1 = False
-        self.ExecFile = ""
-        self.File_Imp_TF = ""
-        self.ComboBox = ""
-        self.ListBox = []
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getCheck_Box_1(self):
-        return self.Check_Box_1
-
-    def setCheck_Box_1(self, flag):
-        self.Check_Box_1 = flag
-
-    def getExec_Prog_Flag(self):
-        return self.Exec_Prog_Flag
-
-    def setExec_Prog_Flag(self, flag):
-        self.Exec_Prog_Flag = flag
-
-    def getImp_File_Flag(self):
-        return self.Imp_File_Flag
-
-    def setImp_File_Flag(self, flag):
-        self.Imp_File_Flag = flag
-
-    def getComboBox(self):
-        return self.ComboBox
-
-    def setComboBox(self, entry):
-        self.ComboBox = entry
-
-    def getListBox(self):
-        return self.ListBox
-
-    def clearListBox(self):
-        self.ListBox[:] = []
-
-    def setListBox(self, entry):
-        self.ListBox = entry
-
-    def getExecFile(self):
-        return self.ExecFile
-
-    def setExecFile(self, filename):
-        self.ExecFile = filename
-
-    def getFile_Imp_TF(self):
-        return self.File_Imp_TF    
-        
-    def setFile_Imp_TF(self, filename):
-        self.File_Imp_TF = filename    
         
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
@@ -284,37 +221,37 @@ class GUI_TestWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.Exec_Program_CB.isSelected():
-            self.local_settings.setExec_Prog_Flag(True)
+            self.local_settings.setSetting('Exec_Prog_Flag', 'true')
             self.Program_Executable_TF.setEnabled(True)
             self.Find_Program_Exec_BTN.setEnabled(True)
         else:
-            self.local_settings.setExec_Prog_Flag(False)
+            self.local_settings.setSetting('Exec_Prog_Flag', 'false')
             self.Program_Executable_TF.setText("")
             self.Program_Executable_TF.setEnabled(False)
             self.Find_Program_Exec_BTN.setEnabled(False)
 
         if self.Imp_File_CB.isSelected():
-            self.local_settings.setImp_File_Flag(True)
+            self.local_settings.setSetting('Imp_File_Flag', 'true')
             self.File_Imp_TF.setEnabled(True)
             self.Find_Imp_File_BTN.setEnabled(True)
         else:
-            self.local_settings.setImp_File_Flag(False)
+            self.local_settings.setSetting('Imp_File_Flag', 'false')
             self.File_Imp_TF.setText("")
-            self.local_settings.setFile_Imp_TF("")
+            self.local_settings.setSetting('File_Imp_TF', "")
             self.File_Imp_TF.setEnabled(False)
             self.Find_Imp_File_BTN.setEnabled(False)
 
     def keyPressed(self, event):
-        self.local_settings.setArea(self.area.getText()) 
+        self.local_settings.setSetting('Area', self.area.getText()) 
 
     def onchange_cb(self, event):
-        self.local_settings.setComboBox(event.item) 
+        self.local_settings.setSetting('ComboBox', event.item) 
         #self.Error_Message.setText(event.item)
 
     def onchange_lb(self, event):
-        self.local_settings.clearListBox()
+        self.local_settings.setSetting('ListBox', "")
         list_selected = self.List_Box_LB.getSelectedValuesList()
-        self.local_settings.setListBox(list_selected)      
+        self.local_settings.setSetting('ListBox', str(list_selected))      
         # if (len(list_selected) > 0):
             # self.Error_Message.setText(str(list_selected))
         # else:
@@ -334,9 +271,9 @@ class GUI_TestWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
            #text = self.readPath(file)
            if self.File_Imp_TF.isEnabled():
               self.File_Imp_TF.setText(Canonical_file)
-              self.local_settings.setFile_Imp_TF(Canonical_file)
+              self.local_settings.setSetting('File_Imp_TF', Canonical_file)
            else:
-              self.local_settings.setExecFile(Canonical_file)
+              self.local_settings.setSetting('ExecFile', Canonical_file)
               self.Program_Executable_TF.setText(Canonical_file)
 
     # TODO: Update this for your UI
@@ -511,9 +448,9 @@ class GUI_TestWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.Exec_Program_CB.setSelected(self.local_settings.getExec_Prog_Flag())
-        self.Imp_File_CB.setSelected(self.local_settings.getImp_File_Flag())
-        self.Check_Box_CB.setSelected(self.local_settings.getCheck_Box_1())
+        self.Exec_Program_CB.setSelected(self.local_settings.getSetting('Exec_Prog_Flag') == 'true')
+        self.Imp_File_CB.setSelected(self.local_settings.getSetting('Imp_File_Flag') == 'true')
+        self.Check_Box_CB.setSelected(self.local_settings.getSetting('Check_Box_1') == 'true')
 
     # Return the settings used
     def getSettings(self):
