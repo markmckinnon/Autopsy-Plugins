@@ -33,6 +33,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - Sept 2016 
+#   Version 1.1 - Support for Linux
 # 
 
 import jarray
@@ -73,7 +74,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -102,15 +103,15 @@ class ParsePlists2DBDelRecIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return GUI_PSQLiteUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, GUI_PSQLiteUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return GUI_PSQLiteUISettingsPanel(self.settings)
 
@@ -140,18 +141,23 @@ class ParsePlists2DBDelRecIngestModule(DataSourceIngestModule):
     def startUp(self, context):
         self.context = context
 
-        if self.local_settings.getFlag():
+        if self.local_settings.getSetting('Flag') == 'true':
             #self.List_Of_DBs.append('Other')
-            DBs_List = self.local_settings.getArea().split(',')
+            DBs_List = self.local_settings.getSetting('plists').split(',')
             for DBs in DBs_List:
                 self.List_Of_DBs.append(str(DBs).strip('\n').replace(' ',''))
         
         #self.logger.logp(Level.INFO, GUI_TestWithUI.__name__, "startUp", str(self.List_Of_Events))
         self.log(Level.INFO, str(self.List_Of_DBs))
    
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plist2db.exe")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plist2db.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Windows Executable was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plist2db')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException("Oh No!")
 
@@ -186,8 +192,8 @@ class ParsePlists2DBDelRecIngestModule(DataSourceIngestModule):
                # Run the EXE, saving output to a sqlite database
                self.log(Level.INFO, "Running program ==> " + self.path_to_exe + " " + Temp_Dir + "\\" + \
                         file.getName() + "-" + str(file.getId()) + " " + Temp_Dir + "\\Plist_File-" + str(file.getId()) + ".db3 ")
-               pipe = Popen([self.path_to_exe, Temp_Dir + "\\" + file.getName() + "-" + str(file.getId()), Temp_Dir + \
-                         "\\Plist_File-" + str(file.getId()) + ".db3"], stdout=PIPE, stderr=PIPE)
+               pipe = Popen([self.path_to_exe, os.path.join(Temp_Dir, (file.getName() + "-" + str(file.getId()))), \
+                         os.path.join(Temp_Dir, ("Plist_File-" + str(file.getId()) + ".db3"))], stdout=PIPE, stderr=PIPE)
                out_text = pipe.communicate()[0]
                self.log(Level.INFO, "Output from run is ==> " + out_text)               
            
@@ -318,8 +324,8 @@ class ParsePlists2DBDelRecIngestModule(DataSourceIngestModule):
                # Clean up
                    stmt.close()
                    dbConn.close()
-                   os.remove(Temp_Dir + "\\Plist_File-" + str(file.getId()) + ".db3")
-               os.remove(Temp_Dir + "\\" + file.getName() + "-" + str(file.getId()))
+                   os.remove(os.path.join(Temp_Dir, "Plist_File-" + str(file.getId()) + ".db3"))
+               os.remove(os.path.join(Temp_Dir, file.getName() + "-" + str(file.getId())))
                
                 
         # After all databases, post a message to the ingest messages in box.
@@ -336,29 +342,7 @@ class ParsePlists2DBDelRecIngestModule(DataSourceIngestModule):
         
         return IngestModule.ProcessResult.OK
 
-class GUI_PSQLiteUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.flag = False
-        self.area = ""
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # TODO: Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.flag
-
-    def setFlag(self, flag):
-        self.flag = flag
-
-    def getArea(self):
-        return self.area
-
-    def setArea(self, area):
-        self.area = area
-        
+       
 class GUI_PSQLiteUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -380,10 +364,10 @@ class GUI_PSQLiteUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.checkbox.isSelected():
-            self.local_settings.setFlag(True)
-            self.local_settings.setArea(self.area.getText());
+            self.local_settings.setSetting('Flag', 'true')
+            self.local_settings.setSetting('plists', self.area.getText());
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('Flag', 'false')
 
     # TODO: Update this for your UI
     def initComponents(self):
@@ -421,7 +405,8 @@ class GUI_PSQLiteUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkbox.setSelected(self.local_settings.getFlag())
+        self.checkbox.setSelected(self.local_settings.getSetting('Flag') == 'true')
+        self.area.setText(self.local_settings.getSetting('plists'))
 
     # Return the settings used
     def getSettings(self):

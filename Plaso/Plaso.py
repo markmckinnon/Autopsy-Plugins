@@ -71,7 +71,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -103,14 +103,15 @@ class PlasoIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return PlasoSettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
+    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, PlasoSettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return PlasoSettingsWithUISettingsPanel(self.settings)
 
@@ -143,19 +144,22 @@ class PlasoIngestModule(DataSourceIngestModule):
         self.context = context
 
         #Show parameters that are passed in
-        self.log(Level.INFO, "Plaso directory ==> " + self.local_settings.getPlaso_Directory())
-        self.log(Level.INFO, "Plaso Storage File ==> " + self.local_settings.getPlaso_Storage_File())
-        self.exclude_file_sources = self.local_settings.getExclude_File_Sources()
-        if self.local_settings.getExclude_File_Sources():
+        self.log(Level.INFO, "Plaso directory ==> " + self.local_settings.getSetting('Plaso_Directory'))
+        self.log(Level.INFO, "Plaso Storage File ==> " + str(self.local_settings.getSetting('Plaso_Storage_File')))
+     
+        if self.local_settings.getSetting('Exclude_File_Sources') == 'true':
             self.log(Level.INFO, "Exclude File Information from import process")
+            self.exclude_file_sources = True
         else:
             self.log(Level.INFO, "Include File Information in import process")
+            self.exclude_file_sources = False
         
         # Create path to plaso storage file
-        if self.local_settings.getRun_Plaso():
+        if self.local_settings.getSetting('Run_Plaso') == 'true':
             self.log(Level.INFO, "This is a plaso run")
             self.run_plaso = True
-            self.vss_opt = self.local_settings.getComboBox()
+            self.vss_opt = self.local_settings.getSetting('ComboBox')
+            self.log(Level.INFO, "VSS Option is ==> " + str(self.vss_opt))
             if (self.vss_opt == "VSS Only"):
                 self.vss_option = "--vss_only"
             elif (self.vss_opt == "No VSS"):
@@ -165,18 +169,25 @@ class PlasoIngestModule(DataSourceIngestModule):
         else:
             self.run_plaso = False
             self.log(Level.INFO, "This is a plaso import run")
-            self.log(Level.INFO, self.local_settings.getPlaso_Storage_File())
-            self.path_to_storage_file = self.local_settings.getPlaso_Storage_File()
-        
-        # Check to see if the file to execute exists, if it does not then raise an exception and log error
-        # data is taken from the UI
-        self.path_to_exe_psort = os.path.join(self.local_settings.getPlaso_Directory(), "psort.exe")
-        if not os.path.exists(self.path_to_exe_psort):
-            raise IngestModuleException("Psort File to Run/execute does not exist.")
+            self.log(Level.INFO, self.local_settings.getSetting('Plaso_Storage_File'))
+            self.path_to_storage_file = self.local_settings.getSetting('Plaso_Storage_File')
+        if PlatformUtil.isWindowsOS():
+            # Check to see if the file to execute exists, if it does not then raise an exception and log error
+            # data is taken from the UI
+            self.path_to_exe_psort = os.path.join(self.local_settings.getSetting('Plaso_Directory'), "psort.exe")
+            if not os.path.exists(self.path_to_exe_psort):
+                raise IngestModuleException("Psort File to Run/execute does not exist.")
 
-        self.path_to_exe_log2t = os.path.join(self.local_settings.getPlaso_Directory(), "log2timeline.exe")
-        if not os.path.exists(self.path_to_exe_log2t):
-            raise IngestModuleException("log2timeline File to Run/execute does not exist.")
+            self.path_to_exe_log2t = os.path.join(self.local_settings.getSetting('Plaso_Directory'), "log2timeline.exe")
+            if not os.path.exists(self.path_to_exe_log2t):
+                raise IngestModuleException("log2timeline File to Run/execute does not exist.")
+        else:
+            self.path_to_exe_psort = os.path.join(self.local_settings.getSetting('Plaso_Directory'), "psort.py")
+            if not os.path.exists(self.path_to_exe_psort):
+                raise IngestModuleException("Psort File to does not exist.")
+            self.path_to_exe_log2t = os.path.join(self.local_settings.getSetting('Plaso_Directory'), "log2timeline.py")
+            if not os.path.exists(self.path_to_exe_log2t):
+                raise IngestModuleException("log2timeline File to does not exist.")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -204,16 +215,17 @@ class PlasoIngestModule(DataSourceIngestModule):
 		# Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getModulesOutputDirAbsPath()
         self.log(Level.INFO, "create Directory " + Temp_Dir)
+        temp_dir = os.path.join(Temp_Dir, "Plaso")
         try:
-		    os.mkdir(Temp_Dir + "\Plaso")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "Plaso Import Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "Plaso Import Directory already exists " + temp_dir)
 		
         # Run log2timeline against the selected images
         plaso_image = dataSource.getPaths()
-        if self.local_settings.getRun_Plaso():
+        if self.local_settings.getSetting('Run_Plaso') == 'true':
             for image in plaso_image:
-                base_path = Temp_Dir + "\Plaso"
+                base_path = temp_dir
                 self.log(Level.INFO, "image ==> " + str(image) + " <==")                
                 file_name = os.path.basename(image)
                 self.log(Level.INFO, "file name ==> " + file_name + " <==")                
@@ -231,19 +243,21 @@ class PlasoIngestModule(DataSourceIngestModule):
                     self.log(Level.INFO, "Running prog ==> " + self.path_to_exe_log2t + " --status_view none --partitions all --logfile " + \
                                          log_file + " --vss_stores all " + storage_file + " " + image)
                     pipe = Popen([self.path_to_exe_log2t, "--status_view", "none", "--partitions", "all", "--logfile", log_file, \
+                                  "--hasher_file_size_limit", "1", "--hashers", "none", "--no_dependencies_check", \
                                   "--vss_stores", "all", storage_file, image], stdout=PIPE, stderr=PIPE)
                 else:
                     self.log(Level.INFO, "Running progxx ==> " + self.path_to_exe_log2t + " --status_view none --partitions all --logfile " + \
                                          log_file + " " + self.vss_option + " " + storage_file + " " + image)
                     pipe = Popen([self.path_to_exe_log2t, "--status_view", "none", "--partitions", "all", "--logfile", log_file, \
+                                  "--hasher_file_size_limit", "1", "--hashers", "none", "--no_dependencies_check", \
                                   self.vss_option, storage_file, image], stdout=PIPE, stderr=PIPE)
                 out_text = pipe.communicate()[0]
                 self.log(Level.INFO, "Output from run is ==> " + out_text)               
         
         # Run the psort.exe program against the storage file to convert the storage file from native to SQLite 
-        base_path = Temp_Dir + "\Plaso"
+        base_path = temp_dir
         self.log(Level.INFO, "Base Path ==> " + base_path)
-        #if self.local_settings.getImport_Plaso():
+        #if self.local_settings.getSetting('Import_Plaso'):
         file_name = os.path.basename(self.path_to_storage_file)
         self.log(Level.INFO, "File Name ==> " + file_name)
         base_file_name = os.path.splitext(file_name)[0]
@@ -255,7 +269,7 @@ class PlasoIngestModule(DataSourceIngestModule):
         storage_file = os.path.join(base_path, base_file_name + ".plaso")            
         self.log(Level.INFO, "Storage File ==> " + storage_file)
         ##self.database_file = Temp_Dir + "\\Plaso\\Plaso.db3"
-        if self.local_settings.getRun_Plaso():
+        if self.local_settings.getSetting('Run_Plaso') == 'true':
             self.log(Level.INFO, "Running program ==> " + self.path_to_exe_psort + " -o 4n6time_sqlite -w " + output_file + " " + \
                      storage_file)
             pipe = Popen([self.path_to_exe_psort, "-o", "4n6time_sqlite", "-w", output_file, storage_file], stdout=PIPE, stderr=PIPE)
@@ -269,7 +283,7 @@ class PlasoIngestModule(DataSourceIngestModule):
             self.log(Level.INFO, "Output from run is ==> " + out_text)               
 
         plaso_db_file = output_file
-        plaso_db_dir = Temp_Dir + "\Plaso"
+        plaso_db_dir = temp_dir
         self.log(Level.INFO, "Plaso DB File ==> " + plaso_db_file)
         for file in files:
             abstract_file_info = skCase.getAbstractFileById(file.getId())
@@ -416,68 +430,6 @@ class PlasoIngestModule(DataSourceIngestModule):
         return IngestModule.ProcessResult.OK                
 		
 
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class PlasoSettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Plaso_Dir_Found = False
-        self.Plaso_Directory = ""
-        self.Plaso_Storage_File = ""
-        self.Exclude_File_Sources = False
-        self.Run_Plaso = False
-        self.Import_Plaso = False
-        #self.ListBox = []
-        self.ComboBox = "All VSS"
-        
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getExclude_File_Sources(self):
-        return self.Exclude_File_Sources
-
-    def setExclude_File_Sources(self, flag):
-        self.Exclude_File_Sources = flag
-
-    def getRun_Plaso(self):
-        return self.Run_Plaso
-
-    def setRun_Plaso(self, flag):
-        self.Run_Plaso = flag
-        
-    def getImport_Plaso(self):
-        return self.Import_Plaso
-
-    def setImport_Plaso(self, flag):
-        self.Import_Plaso = flag
-        
-    def getPlaso_Dir_Found(self):
-        return self.Plaso_Dir_Found
-
-    def setPlaso_Dir_Found(self, flag):
-        self.Plaso_Dir_Found = flag
-
-    def getPlaso_Directory(self):
-        return self.Plaso_Directory
-
-    def setPlaso_Directory(self, dirname):
-        self.Plaso_Directory = dirname
-
-    def getPlaso_Storage_File(self):
-        return self.Plaso_Storage_File
-
-    def setPlaso_Storage_File(self, filename):
-        self.Plaso_Storage_File = filename
-
-    def getComboBox(self):
-        return self.ComboBox
-
-    def setComboBox(self, entry):
-        self.ComboBox = entry
-    
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
 class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
@@ -501,74 +453,20 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Check the checkboxs to see what actions need to be taken
     def checkBoxEvent(self, event):
         if self.Exclude_File_Sources_CB.isSelected():
-            self.local_settings.setExclude_File_Sources(True)
+            self.local_settings.setSetting('Exclude_File_Sources', 'true')
         else:
-            self.local_settings.setExclude_File_Sources(False)
+            self.local_settings.setSetting('Exclude_File_Sources', 'false')
 
         if self.Run_Plaso_CB.isSelected():
-            self.local_settings.setRun_Plaso(True)
+            self.local_settings.setSetting('Run_Plaso', 'true')
         else:
-            self.local_settings.setRun_Plaso(False)
+            self.local_settings.setSetting('Run_Plaso', 'false')
 
         if self.Run_Plaso_CB.isSelected():
-            self.local_settings.setImport_Plaso(True)
+            self.local_settings.setSetting('Import_Plaso', 'true')
         else:
-            self.local_settings.setImport_Plaso(False)
+            self.local_settings.setSetting('Import_Plaso', 'false')
             
-    # Check to see if there are any entries that need to be populated from the database.        
-    def check_Database_entries(self):
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings DB!")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = 'Select Setting_Name, Setting_Value from settings;' 
-           resultSet = stmt.executeQuery(SQL_Statement)
-           while resultSet.next():
-               if resultSet.getString("Setting_Name") == "Plaso_Executable_Directory":
-                   self.Program_Executable_TF.setText(resultSet.getString("Setting_Value"))
-                   self.local_settings.setPlaso_Directory(resultSet.getString("Setting_Value"))
-                   self.local_settings.setPlaso_Dir_Found(True)
-           self.Error_Message.setText("Settings Read successfully!")
-        except SQLException as e:
-            self.Error_Message.setText("Error Reading Settings Database")
-
-        stmt.close()
-        dbConn.close()
-
-    # Save entries from the GUI to the database.
-    def SaveSettings(self, e):
-        
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = ""
-           if (self.local_settings.getPlaso_Dir_Found()):
-               SQL_Statement = 'Update settings set Setting_Value = "' + self.Program_Executable_TF.getText() + '"' + \
-                               ' where setting_name = "Plaso_Executable_Directory";' 
-           else:
-               SQL_Statement = 'Insert into settings (Setting_Name, Setting_Value) values ("Program_Exec_Name", "' +  \
-                               self.Program_Executable_TF.getText() + '");' 
-           
-           stmt.execute(SQL_Statement)
-           self.Error_Message.setText("Plaso Executable Directory Saved")
-           self.local_settings.setPlaso_Directory(self.Program_Executable_TF.getText())
-        except SQLException as e:
-           self.Error_Message.setText(e.getMessage())
-        stmt.close()
-        dbConn.close()
            
     # When button to find file is clicked then open dialog to find the file and return it.       
     def Find_Plaso_Dir(self, e):
@@ -584,7 +482,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
            file = chooseFile.getSelectedFile()
            Canonical_file = file.getCanonicalPath()
            #text = self.readPath(file)
-           self.local_settings.setPlaso_Directory(Canonical_file)
+           self.local_settings.setSetting('Plaso_Directory', Canonical_file)
            self.Program_Executable_TF.setText(Canonical_file)
 
     def Find_Plaso_File(self, e):
@@ -599,11 +497,17 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
            file = chooseFile.getSelectedFile()
            Canonical_file = file.getCanonicalPath()
            #text = self.readPath(file)
-           self.local_settings.setPlaso_Storage_File(Canonical_file)
+           self.local_settings.setSetting('Plaso_Storage_File', Canonical_file)
            self.Plaso_Storage_File_TF.setText(Canonical_file)
            
     def onchange_cb(self, event):
-        self.local_settings.setComboBox(event.item) 
+        self.local_settings.setSetting('ComboBox', event.item)
+
+    def setPlasoDirectory(self, event):
+        self.local_settings.setSetting('Plaso_Directory', self.Program_Executable_TF.getText()) 
+           
+    def setPlasoStorageFile(self, event):
+        self.local_settings.setSetting('Plaso_Storage_File', self.Plaso_Storage_File_TF.getText()) 
 
     # Create the initial data fields/layout in the UI
     def initComponents(self):
@@ -627,7 +531,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_1, self.gbcPanel0 ) 
         self.panel0.add( self.Label_1 ) 
 
-        self.Program_Executable_TF = JTextField(20) 
+        self.Program_Executable_TF = JTextField(20, focusLost=self.setPlasoDirectory) 
         self.Program_Executable_TF.setEnabled(True)
         self.gbcPanel0.gridx = 2 
         self.gbcPanel0.gridy = 3 
@@ -667,36 +571,9 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Blank_1, self.gbcPanel0 ) 
         self.panel0.add( self.Blank_1 ) 
 
-        self.Save_Settings_BTN = JButton( "Save Plaso Exec Dir", actionPerformed=self.SaveSettings) 
-        self.Save_Settings_BTN.setEnabled(True)
-        self.rbgPanel0.add( self.Save_Settings_BTN ) 
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 7
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Save_Settings_BTN, self.gbcPanel0 ) 
-        self.panel0.add( self.Save_Settings_BTN ) 
-
-        self.Blank_1 = JLabel( " ") 
-        self.Blank_1.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 9
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_1, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_1 ) 
-
         self.Run_Plaso_CB = JCheckBox("Run Plaso Against Autopsy Image", actionPerformed=self.checkBoxEvent)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 11 
+        self.gbcPanel0.gridy = 7 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -710,7 +587,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.ComboBox_CB = JComboBox( self.dataComboBox_CB)
         self.ComboBox_CB.itemStateChanged = self.onchange_cb        
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 13 
+        self.gbcPanel0.gridy = 9 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -723,7 +600,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_2 = JLabel( " ") 
         self.Blank_2.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 15
+        self.gbcPanel0.gridy = 11
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -735,7 +612,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
         self.Import_Plaso_CB = JCheckBox("Import Plaso Storage File", actionPerformed=self.checkBoxEvent)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 17
+        self.gbcPanel0.gridy = 13
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -748,7 +625,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Label_1 = JLabel("Plaso Storage File")
         self.Label_1.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 19 
+        self.gbcPanel0.gridy = 15 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -758,10 +635,10 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_1, self.gbcPanel0 ) 
         self.panel0.add( self.Label_1 ) 
 
-        self.Plaso_Storage_File_TF = JTextField(20) 
+        self.Plaso_Storage_File_TF = JTextField(20, focusLost=self.setPlasoStorageFile) 
         self.Plaso_Storage_File_TF.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 21 
+        self.gbcPanel0.gridy = 17 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -775,7 +652,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Find_Storage_BTN.setEnabled(True)
         self.rbgPanel0.add( self.Find_Storage_BTN ) 
         self.gbcPanel0.gridx = 6 
-        self.gbcPanel0.gridy = 21 
+        self.gbcPanel0.gridy = 17 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -788,7 +665,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_3 = JLabel( " ") 
         self.Blank_3.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 23
+        self.gbcPanel0.gridy = 19
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -800,7 +677,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
         self.Exclude_File_Sources_CB = JCheckBox( "Exclude File Source", actionPerformed=self.checkBoxEvent) 
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 25
+        self.gbcPanel0.gridy = 21
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -813,7 +690,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_4 = JLabel( " ") 
         self.Blank_4.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 27
+        self.gbcPanel0.gridy = 23
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -826,7 +703,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Label_3 = JLabel( "Message:") 
         self.Label_3.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 29
+        self.gbcPanel0.gridy = 25
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -839,7 +716,7 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Error_Message = JLabel( "") 
         self.Error_Message.setEnabled(True)
         self.gbcPanel0.gridx = 2
-        self.gbcPanel0.gridy = 31
+        self.gbcPanel0.gridy = 27
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -853,10 +730,12 @@ class PlasoSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # Custom load any data field and initialize the values
     def customizeComponents(self):
-        self.Exclude_File_Sources_CB.setSelected(self.local_settings.getExclude_File_Sources())
-        self.Run_Plaso_CB.setSelected(self.local_settings.getRun_Plaso())
-        self.Import_Plaso_CB.setSelected(self.local_settings.getImport_Plaso())
-        self.check_Database_entries()
+        self.Exclude_File_Sources_CB.setSelected(self.local_settings.getSetting('Exclude_File_Sources') == 'true')
+        self.Run_Plaso_CB.setSelected(self.local_settings.getSetting('Run_Plaso') == 'true')
+        self.Import_Plaso_CB.setSelected(self.local_settings.getSetting('Import_Plaso') == 'true')
+        self.Program_Executable_TF.setText(self.local_settings.getSetting('Plaso_Directory'))
+        self.Plaso_Storage_File_TF.setText(self.local_settings.getSetting('Plaso_Storage_File'))
+        
 
     # Return the settings used
     def getSettings(self):
