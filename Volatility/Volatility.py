@@ -38,6 +38,7 @@
 #                 then read it from the database.
 #   Version 1.2 - Added code so if a plugin is rerun then do not add it back into Autopsy.  It will
 #                 create double entries in the SQLite database that Volatility creates/maintains.
+#   Version 1.3 - Added Linux Support
 # 
 
 import jarray
@@ -76,7 +77,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -108,14 +109,15 @@ class VolatilityIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.2"
     
     def getDefaultIngestJobSettings(self):
-        return VolatilitySettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
+    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, VolatilitySettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return VolatilitySettingsWithUISettingsPanel(self.settings)
 
@@ -148,17 +150,31 @@ class VolatilityIngestModule(DataSourceIngestModule):
         self.context = context
 
         #Show parameters that are passed in
-        self.Volatility_Executable = self.local_settings.getVolatility_Directory()
-        self.Plugins = self.local_settings.getPluginListBox()
-        self.Profile = self.local_settings.getProfile()
-        self.Additional_Parms = self.local_settings.getAdditionalParms()
+        self.Volatility_Executable = self.local_settings.getSetting('Volatility_Directory')
+
+        Plugins = self.local_settings.getSetting('PluginListBox')
+        Plugins = Plugins.replace("[", "")
+        Plugins = Plugins.replace("]", "")
+        Plugins = Plugins.replace(" ", "")
+        self.Plugins = Plugins.split(",")
+        self.log(Level.INFO, "List Box Entry Starts here =====>")
+        self.log(Level.INFO, str(self.Plugins))
+        for num in range (0, len(self.Plugins)):
+           self.log(Level.INFO, str(self.Plugins[num]))
+        self.log(Level.INFO, "<====== List Box Entry Ends here")
+
+        self.Profile = self.local_settings.getSetting('Profile')
+        if self.local_settings.getSetting('AdditionalParms') == None:
+            self.Additional_Parms = ""
+        else:
+            self.Additional_Parms = self.local_settings.getSetting('AdditionalParms')
         
         if self.Profile == 'Autodetect':
             self.isAutodetect = True
         else:
             self.isAutodetect = False
         
-        self.log(Level.INFO, "Volatility Executable ==> " + self.local_settings.getVolatility_Directory())
+        self.log(Level.INFO, "Volatility Executable ==> " + self.local_settings.getSetting('Volatility_Directory'))
         self.log(Level.INFO, "Volatility Profile to use ==> " + self.Profile)
         self.log(Level.INFO, "Volatility Plugins to use ==> " + str(self.Plugins))
         self.log(Level.INFO, "Additional Parms ==> " + self.Additional_Parms)
@@ -170,10 +186,10 @@ class VolatilityIngestModule(DataSourceIngestModule):
         if 'vol.py' in self.Volatility_Executable:
             self.Python_Program = True
         if not os.path.exists(self.Volatility_Executable):
-            raise IngestModuleException("colatility File to Run/execute does not exist.")
+            raise IngestModuleException("volatility File to Run/execute does not exist.")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
-        # raise IngestModuleException(IngestModule(), "Oh No!")
+        #raise IngestModuleException(IngestModule(), "Oh No!")
         pass
 
     # Where the analysis is done.
@@ -190,8 +206,9 @@ class VolatilityIngestModule(DataSourceIngestModule):
         
         # Get the temp directory and create the sub directory
         Temp_Dir = Case.getCurrentCase().getModulesOutputDirAbsPath()
+        temp_dir = os.path.join(Temp_Dir, "Volatility")
         try:
-		    os.mkdir(Temp_Dir + "\Volatility")
+		    os.mkdir(temp_dir)
         except:
 		    self.log(Level.INFO, "Plaso Import Directory already exists " + Temp_Dir)
 
@@ -214,7 +231,7 @@ class VolatilityIngestModule(DataSourceIngestModule):
                 file_name = os.path.basename(file.getLocalAbsPath())
                 self.log(Level.INFO, "File Name ==> " + file_name)
                 base_file_name = os.path.splitext(file_name)[0]
-                self.database_file = Temp_Dir + "\\volatility\\" + base_file_name + ".db3"
+                self.database_file = os.path.join(temp_dir, base_file_name + ".db3")
                 self.log(Level.INFO, "File Name ==> " + self.database_file)
                 if self.isAutodetect:
                     self.find_profile(image_file)
@@ -224,8 +241,12 @@ class VolatilityIngestModule(DataSourceIngestModule):
                     if self.Python_Program:    
                         self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
                                  "--profile=" + self.Profile + " --output=sqlite --output-file=" + self.database_file + " " + self.Additional_Parms + " " + plugin_to_run)
-                        pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, "--output=sqlite", \
-                               "--output-file=" + self.database_file, self.Additional_Parms, plugin_to_run], stdout=PIPE, stderr=PIPE)
+                        if PlatformUtil.isWindowsOS():
+                            pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, "--output=sqlite", \
+                                   "--output-file=" + self.database_file, self.Additional_Parms, plugin_to_run], stdout=PIPE, stderr=PIPE)
+                        else:
+                            pipe = Popen(["python", self.Volatility_Executable, "-f", file.getLocalAbsPath(), "--profile=" + self.Profile, "--output=sqlite", \
+                                   "--output-file=" + self.database_file, self.Additional_Parms, plugin_to_run], stdout=PIPE, stderr=PIPE)							
                     else:
                         self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + file.getLocalAbsPath() + " " + \
                                  "--profile=" + self.Profile + " --output=sqlite --output-file=" + self.database_file + " " + self.Additional_Parms + " " + plugin_to_run)
@@ -379,7 +400,7 @@ class VolatilityIngestModule(DataSourceIngestModule):
         file_name = os.path.basename(image_file)
         self.log(Level.INFO, "File Name ==> " + file_name)
         base_file_name = os.path.splitext(file_name)[0]
-        database_file = Temp_Dir + "\\" + base_file_name + ".db3"
+        database_file = os.path.join(Temp_Dir, base_file_name + ".db3")
         self.log(Level.INFO, "File Name ==> " + self.database_file)
         found_profile = False
         
@@ -431,8 +452,12 @@ class VolatilityIngestModule(DataSourceIngestModule):
             if self.Python_Program:
                 self.log(Level.INFO, "Running program ==> " + "Python " + self.Volatility_Executable + " -f " + image_file + " " + \
                          " --output=sqlite --output-file=" + self.database_file + " imageinfo")
-                pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
-                       "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+                if PlatformUtil.isWindowsOS():
+                    pipe = Popen(["Python.exe", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
+                           "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)
+                else:
+                    pipe = Popen(["python", self.Volatility_Executable, "-f", image_file, "--output=sqlite", \
+                           "--output-file=" + self.database_file, "imageinfo"], stdout=PIPE, stderr=PIPE)					
             else:
                 self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " -f " + image_file + " " + \
                          " --output=sqlite --output-file=" + self.database_file + " imageinfo")
@@ -494,66 +519,6 @@ class VolatilityIngestModule(DataSourceIngestModule):
                  self.log(Level.INFO, "removal of volatility imageinfo database failed " + Temp_Dir)
    
            
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class VolatilitySettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Volatility_Dir_Found = False
-        self.Volatility_Directory = ""
-        self.Exclude_File_Sources = False
-        self.Version = "2.5"
-        self.Profile = "Autodetect" 
-        self.Plugins = []
-        self.AdditionalParms = ""
-       
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getVolatility_Dir_Found(self):
-        return self.Volatility_Dir_Found
-
-    def setVolatility_Dir_Found(self, flag):
-        self.Volatility_Dir_Found = flag
-
-    def getVolatility_Directory(self):
-        return self.Volatility_Directory
-
-    def setVolatility_Directory(self, dirname):
-        self.Volatility_Directory = dirname
-
-    def getVersion(self):
-        return self.Version
-
-    def setVersion(self, entry):
-        self.Version = entry
-        
-    def getProfile(self):
-        return self.Profile
-
-    def setProfile(self, entry):
-        self.Profile = entry
-        
-    def getPluginListBox(self):
-        return self.Plugins
-
-    def setPluginListBox(self, entry):
-        self.Plugins = entry
-        
-    def clearPluginListBox(self):
-        self.Plugins[:] = []
-        
-    def getAdditionalParms(self):
-        return self.AdditionalParms
-
-    def setAdditionalParms(self, entry):
-        self.AdditionalParms = entry
-        
-
-    
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
 class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
@@ -569,6 +534,12 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # We get passed in a previous version of the settings so that we can
     # prepopulate the UI
     # TODO: Update this for your UI
+    
+    _logger = Logger.getLogger(VolatilityIngestModuleFactory.moduleName)
+
+    def log(self, level, msg):
+        self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
+
     def __init__(self, settings):
         self.local_settings = settings
         self.initComponents()
@@ -577,76 +548,13 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Check the checkboxs to see what actions need to be taken
     def checkBoxEvent(self, event):
         if self.Exclude_File_Sources_CB.isSelected():
-            self.local_settings.setExclude_File_Sources(True)
+            self.local_settings.setSetting('Exclude_File_Sources', 'true')
         else:
-            self.local_settings.setExclude_File_Sources(False)
+            self.local_settings.setSetting('Exclude_File_Sources', 'false')
 
-            
-    # Check to see if there are any entries that need to be populated from the database.        
-    def check_Database_entries(self):
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings DB!")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = 'Select Setting_Name, Setting_Value from settings;' 
-           resultSet = stmt.executeQuery(SQL_Statement)
-           while resultSet.next():
-               if resultSet.getString("Setting_Name") == "Volatility_Executable_Directory":
-                   self.Program_Executable_TF.setText(resultSet.getString("Setting_Value"))
-                   self.local_settings.setVolatility_Directory(resultSet.getString("Setting_Value"))
-                   self.local_settings.setVolatility_Dir_Found(True)
-               if resultSet.getString("Setting_Name") == "Volatility_Version":
-                   self.Version_CB.setSelectedItem(resultSet.getString("Setting_Value"))
-           self.Error_Message.setText("Settings Read successfully!")
-        except SQLException as e:
-            self.Error_Message.setText("Error Reading Settings Database")
-
-        stmt.close()
-        dbConn.close()
-
-    # Save entries from the GUI to the database.
-    def SaveSettings(self, e):
-        
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = ""
-           if (self.local_settings.getVolatility_Dir_Found()):
-               SQL_Statement = 'Update settings set Setting_Value = "' + self.Program_Executable_TF.getText() + '"' + \
-                               ' where setting_name = "Volatility_Executable_Directory";' 
-               SQL_Statement2 = 'Update settings set Setting_Value = "' + self.Version_CB.getSelectedItem() + '"' + \
-                               ' where setting_name = "Volatility_Version";' 
-           else:
-               SQL_Statement = 'Insert into settings (Setting_Name, Setting_Value) values ("Volatility_Executable_Directory", "' +  \
-                               self.Program_Executable_TF.getText() + '");' 
-               SQL_Statement2 = 'Insert into settings (Setting_Name, Setting_Value) values ("Volatility_Version", "' +  \
-                               self.Version_CB.getSelectedItem() + '");' 
-           
-           stmt.execute(SQL_Statement)
-           stmt.execute(SQL_Statement2)
-           self.Error_Message.setText("Volatility Executable Directory Saved")
-           self.local_settings.setVolatility_Directory(self.Program_Executable_TF.getText())
-        except SQLException as e:
-           self.Error_Message.setText(e.getMessage())
-        stmt.close()
-        dbConn.close()
-           
     def get_plugins(self):
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
+        head, tail = os.path.split(os.path.abspath(__file__))
+        settings_db = os.path.join(head, "GUI_Settings.db3")
         try: 
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
@@ -673,7 +581,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     def get_profiles(self):
         head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
+        settings_db = os.path.join(head, "GUI_Settings.db3")
         try: 
             Class.forName("org.sqlite.JDBC").newInstance()
             dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
@@ -712,15 +620,15 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
            file = chooseFile.getSelectedFile()
            Canonical_file = file.getCanonicalPath()
            #text = self.readPath(file)
-           self.local_settings.setVolatility_Directory(Canonical_file)
+           self.local_settings.setSetting('Volatility_Directory', Canonical_file)
            self.Program_Executable_TF.setText(Canonical_file)
 
     def keyPressed(self, event):
-        self.local_settings.setAdditionalParms(self.Additional_Parms_TF.getText()) 
+        self.local_settings.setSetting('AdditionalParms', self.Additional_Parms_TF.getText()) 
         #self.Error_Message.setText(self.Additional_Parms_TF.getText())
         
     def onchange_version(self, event):
-        self.local_settings.setVersion(event.item)        
+        self.local_settings.setSetting('Version', event.item)        
         plugin_list = self.get_plugins()
         profile_list = self.get_profiles()
         self.Profile_CB.removeAllItems()
@@ -732,12 +640,12 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.panel0.repaint()
         
     def onchange_plugins_lb(self, event):
-        self.local_settings.clearPluginListBox()
+        self.local_settings.setSetting('PluginListBox' , '')
         list_selected = self.Plugin_LB.getSelectedValuesList()
-        self.local_settings.setPluginListBox(list_selected)      
-
+        self.local_settings.setSetting('PluginListBox', str(list_selected))      
+ 
     def onchange_profile_cb(self, event):
-        self.local_settings.setProfile(event.item) 
+        self.local_settings.setSetting('Profile', event.item) 
 
     # Create the initial data fields/layout in the UI
     def initComponents(self):
@@ -813,33 +721,6 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbcPanel0.anchor = GridBagConstraints.NORTH 
         self.gbPanel0.setConstraints( self.Blank_1, self.gbcPanel0 ) 
         self.panel0.add( self.Blank_1 ) 
-
-        self.Save_Settings_BTN = JButton( "Save Volatility Exec Dir", actionPerformed=self.SaveSettings) 
-        self.Save_Settings_BTN.setEnabled(True)
-        self.rbgPanel0.add( self.Save_Settings_BTN ) 
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 7
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Save_Settings_BTN, self.gbcPanel0 ) 
-        self.panel0.add( self.Save_Settings_BTN ) 
-
-        self.Blank_2 = JLabel( " ") 
-        self.Blank_2.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 9
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_2, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_2 ) 
 
         self.Version_Label_1 = JLabel( "Version:") 
         self.Blank_1.setEnabled(True)
@@ -1019,10 +900,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # Custom load any data field and initialize the values
     def customizeComponents(self):
-        #self.Exclude_File_Sources_CB.setSelected(self.local_settings.getExclude_File_Sources())
-        #self.Run_Plaso_CB.setSelected(self.local_settings.getRun_Plaso())
-        #self.Import_Plaso_CB.setSelected(self.local_settings.getImport_Plaso())
-        self.check_Database_entries()
+        self.Program_Executable_TF.setText(self.local_settings.getSetting('Volatility_Directory'))
         #pass
         
     # Return the settings used

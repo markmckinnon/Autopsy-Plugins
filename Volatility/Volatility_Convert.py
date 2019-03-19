@@ -74,7 +74,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -122,14 +122,15 @@ class VolatilityDumpIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return VolatilitySettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
+    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, VolatilitySettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return VolatilitySettingsWithUISettingsPanel(self.settings)
 
@@ -164,17 +165,17 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         self.context = context
 
         #Show parameters that are passed in
-        self.Volatility_Executable = self.local_settings.getVolatility_Directory()
-        self.hiber_flag = self.local_settings.getFlag()
+        self.Volatility_Executable = self.local_settings.getSetting('Volatility_Directory')
+        self.hiber_flag = self.local_settings.getSetting('Flag')
         
-        self.log(Level.INFO, "Volatility Executable ==> " + self.local_settings.getVolatility_Directory())
+        self.log(Level.INFO, "Volatility Executable ==> " + self.local_settings.getSetting('Volatility_Directory'))
         
         # Check to see if the file to execute exists, if it does not then raise an exception and log error
         # data is taken from the UI
         if 'vol.py' in self.Volatility_Executable:
             self.Python_Program = True
         if not os.path.exists(self.Volatility_Executable):
-            raise IngestModuleException("colatility File to Run/execute does not exist.")
+            raise IngestModuleException("Volatility File to Run/execute does not exist.")
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -196,10 +197,10 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         if self.hiber_flag:
             Mod_Dir = Case.getCurrentCase().getModulesOutputDirAbsPath()
             try:
-                ModOut_Dir = os.path.join(Mod_Dir, "Volatility\\Memory-Image-hiberfil")
+                ModOut_Dir = os.path.join(Mod_Dir, "Volatility", "Memory-Image-hiberfil")
                 self.log(Level.INFO, "Module Output Directory ===>  " + ModOut_Dir)
                 #dir_util.mkpath(ModOut_Dir)
-                os.mkdir(Mod_Dir + "\\Volatility")
+                os.mkdir(os.path.join(Mod_Dir, "Volatility"))
                 os.mkdir(ModOut_Dir)
             except:
                 self.log(Level.INFO, "***** Error Module Output Directory already exists " + ModOut_Dir)
@@ -223,7 +224,10 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
                 if self.Python_Program:    
                     self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " imagecopy -f " + Hiber_File + " " + \
                              " -O " + dump_file)
-                    pipe = Popen(["Python.exe", self.Volatility_Executable, "imagecopy", "-f", Hiber_File, "-O" + dump_file], stdout=PIPE, stderr=PIPE)
+                    if PlatformUtil.isWindowsOS():
+                        pipe = Popen(["Python.exe", self.Volatility_Executable, "imagecopy", "-f", Hiber_File, "-O" + dump_file], stdout=PIPE, stderr=PIPE)
+                    else:
+                        pipe = Popen(["python", self.Volatility_Executable, "imagecopy", "-f", Hiber_File, "-O" + dump_file], stdout=PIPE, stderr=PIPE)						
                 else:
                     self.log(Level.INFO, "Running program ==> " + self.Volatility_Executable + " imagecopy -f " + Hiber_File + " " + \
                              " -O " + dump_file)
@@ -273,41 +277,6 @@ class VolatilityDumpIngestModule(DataSourceIngestModule):
         return IngestModule.ProcessResult.OK                
 		
          
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class VolatilitySettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Volatility_Dir_Found = False
-        self.Volatility_Directory = ""
-        self.Exclude_File_Sources = False
-        self.hiber_flag = False
-       
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.hiber_flag
-
-    def setFlag(self, flag):
-        self.hiber_flag = flag
-
-    def getVolatility_Dir_Found(self):
-        return self.Volatility_Dir_Found
-
-    def setVolatility_Dir_Found(self, flag):
-        self.Volatility_Dir_Found = flag
-
-    def getVolatility_Directory(self):
-        return self.Volatility_Directory
-
-    def setVolatility_Directory(self, dirname):
-        self.Volatility_Directory = dirname
-
-    
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
 class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
@@ -327,69 +296,6 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.local_settings = settings
         self.initComponents()
         self.customizeComponents()
-    
-           
-    # Check to see if there are any entries that need to be populated from the database.        
-    def check_Database_entries(self):
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings DB!")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = 'Select Setting_Name, Setting_Value from settings;' 
-           resultSet = stmt.executeQuery(SQL_Statement)
-           while resultSet.next():
-               if resultSet.getString("Setting_Name") == "Volatility_Executable_Directory":
-                   self.Program_Executable_TF.setText(resultSet.getString("Setting_Value"))
-                   self.local_settings.setVolatility_Directory(resultSet.getString("Setting_Value"))
-                   self.local_settings.setVolatility_Dir_Found(True)
-               # if resultSet.getString("Setting_Name") == "Volatility_Version":
-                   # self.Version_CB.setSelectedItem(resultSet.getString("Setting_Value"))
-           self.Error_Message.setText("Settings Read successfully!")
-        except SQLException as e:
-            self.Error_Message.setText("Error Reading Settings Database")
-
-        stmt.close()
-        dbConn.close()
-
-    # Save entries from the GUI to the database.
-    def SaveSettings(self, e):
-        
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = ""
-           if (self.local_settings.getVolatility_Dir_Found()):
-               SQL_Statement = 'Update settings set Setting_Value = "' + self.Program_Executable_TF.getText() + '"' + \
-                               ' where setting_name = "Volatility_Executable_Directory";' 
-               # SQL_Statement2 = 'Update settings set Setting_Value = "' + self.Version_CB.getSelectedItem() + '"' + \
-                               # ' where setting_name = "Volatility_Version";' 
-           else:
-               SQL_Statement = 'Insert into settings (Setting_Name, Setting_Value) values ("Volatility_Executable_Directory", "' +  \
-                               self.Program_Executable_TF.getText() + '");' 
-               # SQL_Statement2 = 'Insert into settings (Setting_Name, Setting_Value) values ("Volatility_Version", "' +  \
-                               # self.Version_CB.getSelectedItem() + '");' 
-           
-           stmt.execute(SQL_Statement)
-           # stmt.execute(SQL_Statement2)
-           self.Error_Message.setText("Volatility Executable Directory Saved")
-           self.local_settings.setVolatility_Directory(self.Program_Executable_TF.getText())
-        except SQLException as e:
-           self.Error_Message.setText(e.getMessage())
-        stmt.close()
-        dbConn.close()
            
     # When button to find file is clicked then open dialog to find the file and return it.       
     def Find_Dir(self, e):
@@ -405,7 +311,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
            file = chooseFile.getSelectedFile()
            Canonical_file = file.getCanonicalPath()
            #text = self.readPath(file)
-           self.local_settings.setVolatility_Directory(Canonical_file)
+           self.local_settings.setSetting('Volatility_Directory', Canonical_file)
            self.Program_Executable_TF.setText(Canonical_file)
 
     def keyPressed(self, event):
@@ -414,9 +320,9 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         
     def checkBoxEvent(self, event):
         if self.Check_Box.isSelected():
-            self.local_settings.setFlag(True)
+            self.local_settings.setSetting('Flag', 'true')
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('Flag', 'False')
         
     # Create the initial data fields/layout in the UI
     def initComponents(self):
@@ -430,7 +336,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Error_Message = JLabel( "") 
         self.Error_Message.setEnabled(True)
         self.gbcPanel0.gridx = 2
-        self.gbcPanel0.gridy = 31
+        self.gbcPanel0.gridy = 15
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -493,37 +399,10 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Blank_1, self.gbcPanel0 ) 
         self.panel0.add( self.Blank_1 ) 
 
-        self.Save_Settings_BTN = JButton( "Save Volatility Exec Dir", actionPerformed=self.SaveSettings) 
-        self.Save_Settings_BTN.setEnabled(True)
-        self.rbgPanel0.add( self.Save_Settings_BTN ) 
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 7
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Save_Settings_BTN, self.gbcPanel0 ) 
-        self.panel0.add( self.Save_Settings_BTN ) 
-
-        self.Blank_2 = JLabel( " ") 
-        self.Blank_2.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 9
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_2, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_2 ) 
-
         self.Blank_3 = JLabel( " ") 
         self.Blank_3.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 13
+        self.gbcPanel0.gridy = 7
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -536,7 +415,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Check_Box = JCheckBox("Extract and Create Memory Image from Hiberfile", actionPerformed=self.checkBoxEvent) 
         self.Blank_1.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 15
+        self.gbcPanel0.gridy = 9
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -549,7 +428,7 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_4 = JLabel( " ") 
         self.Blank_4.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 17
+        self.gbcPanel0.gridy = 11
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -559,36 +438,10 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Blank_4, self.gbcPanel0 ) 
         self.panel0.add( self.Blank_4 ) 
 
-        self.Blank_5 = JLabel( " ") 
-        self.Blank_5.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 21
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_5, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_5 ) 
-
-        self.Blank_6 = JLabel( " ") 
-        self.Blank_6.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 27
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_6, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_6 ) 
-
         self.Label_3 = JLabel( "Message:") 
         self.Label_3.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 29
+        self.gbcPanel0.gridy = 13
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -602,8 +455,8 @@ class VolatilitySettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # Custom load any data field and initialize the values
     def customizeComponents(self):
-        self.Check_Box.setSelected(self.local_settings.getFlag())
-        self.check_Database_entries()
+        self.Check_Box.setSelected(self.local_settings.getSetting('Flag') == 'true')
+        self.Program_Executable_TF.setText(self.local_settings.getSetting('Volatility_Directory'))
         #pass
         
     # Return the settings used
