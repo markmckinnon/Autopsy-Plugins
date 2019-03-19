@@ -73,7 +73,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import  GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -102,15 +102,15 @@ class ParseSQLiteDBDelRecIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return GUI_PSQLiteUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, GUI_PSQLiteUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return GUI_PSQLiteUISettingsPanel(self.settings)
 
@@ -140,9 +140,9 @@ class ParseSQLiteDBDelRecIngestModule(DataSourceIngestModule):
     def startUp(self, context):
         self.context = context
 
-        if self.local_settings.getFlag():
+        if self.local_settings.getSetting('Flag') == 'true':
             #self.List_Of_DBs.append('Other')
-            DBs_List = self.local_settings.getArea().split(',')
+            DBs_List = self.local_settings.getSetting('Area').split(',')
             for DBs in DBs_List:
                 self.List_Of_DBs.append(str(DBs).strip('\n').replace(' ',''))
         
@@ -330,29 +330,6 @@ class ParseSQLiteDBDelRecIngestModule(DataSourceIngestModule):
         
         return IngestModule.ProcessResult.OK
 
-class GUI_PSQLiteUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.flag = False
-        self.area = ""
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # TODO: Define getters and settings for data you want to store from UI
-    def getFlag(self):
-        return self.flag
-
-    def setFlag(self, flag):
-        self.flag = flag
-
-    def getArea(self):
-        return self.area
-
-    def setArea(self, area):
-        self.area = area
-        
 class GUI_PSQLiteUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
     # Rather, self.local_settings is used.
@@ -374,10 +351,10 @@ class GUI_PSQLiteUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # TODO: Update this for your UI
     def checkBoxEvent(self, event):
         if self.checkbox.isSelected():
-            self.local_settings.setFlag(True)
-            self.local_settings.setArea(self.area.getText());
+            self.local_settings.setSetting('Flag', 'true')
+            self.local_settings.setSetting('Area' ,self.area.getText());
         else:
-            self.local_settings.setFlag(False)
+            self.local_settings.setSetting('Flag', 'false')
 
     # TODO: Update this for your UI
     def initComponents(self):
@@ -415,7 +392,8 @@ class GUI_PSQLiteUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
     # TODO: Update this for your UI
     def customizeComponents(self):
-        self.checkbox.setSelected(self.local_settings.getFlag())
+        self.checkbox.setSelected(self.local_settings.getSetting('Flag') == 'true')
+        self.area.setText(self.local_settings.getSetting('Area'))
 
     # Return the settings used
     def getSettings(self):

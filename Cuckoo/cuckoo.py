@@ -68,7 +68,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -100,14 +100,15 @@ class CuckooIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return CuckooSettingsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
+    # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, CuckooSettingsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return CuckooSettingsWithUISettingsPanel(self.settings)
 
@@ -128,12 +129,12 @@ class CuckooIngestModule(DataSourceIngestModule):
     def __init__(self, settings):
         self.context = None
         self.local_settings = settings
-        self.Submit_File = self.local_settings.getSubmit_File()
-        self.Submit_URL = self.local_settings.getSubmit_URL()
-        self.Protocol = self.local_settings.getProtocol()
-        self.IP_Address = self.local_settings.getIP_Address()
-        self.Port_Number = self.local_settings.getPort_Number()
-        self.tag_list = self.local_settings.gettag_list()
+        self.Submit_File = self.local_settings.getSetting('Submit_File')
+        self.Submit_URL = self.local_settings.getSetting('Submit_URL')
+        self.Protocol = self.local_settings.getSetting('Protocol')
+        self.IP_Address = self.local_settings.getSetting('IP_Address')
+        self.Port_Number = self.local_settings.getSetting('Port_Number')
+        self.tag_list = self.local_settings.getSetting('tag_list')
 
     # Where any setup and configuration is done
     # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
@@ -234,73 +235,6 @@ class CuckooIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 		
-
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-# TODO: Rename this class
-class CuckooSettingsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Cuckoo_Dir_Found = False
-        self.Port_Number = ""
-        self.Protocol = ""
-        self.IP_Address = ""
-        self.ComboBox = ""
-        self.tag_list = []
-        self.Submit_File = False
-        self.Submit_URL = False
-
-        
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getPort_Number(self):
-        return self.Port_Number
-
-    def setPort_Number(self, flag):
-        self.Port_Number = flag
-
-    def getProtocol(self):
-        return self.Protocol
-
-    def setProtocol(self, flag):
-        self.Protocol = flag
-        
-    def getIP_Address(self):
-        return self.IP_Address
-
-    def setIP_Address(self, flag):
-        self.IP_Address = flag
-        
-    def getSubmit_File(self):
-        return self.Submit_File
-
-    def setSubmit_File(self, flag):
-        self.Submit_File = flag
-        
-    def getSubmit_URL(self):
-        return self.Submit_URL
-
-    def setSubmit_URL(self, flag):
-        self.Submit_URL = flag
-        
-    def getComboBox(self):
-        return self.ComboBox
-
-    def setComboBox(self, entry):
-        self.ComboBox = entry
-
-    def gettag_list(self):
-        return self.tag_list
-
-    def cleartag_list(self):
-        self.tag_list[:] = []
-
-    def settag_list(self, entry):
-        self.tag_list = entry
-    
 # UI that is shown to user for each ingest job so they can configure the job.
 # TODO: Rename this
 class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
@@ -326,21 +260,15 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Check the checkboxs to see what actions need to be taken
     def checkBoxEvent(self, event):
         if self.Submit_File_CB.isSelected():
-            self.local_settings.setSubmit_File(True)
-            self.local_settings.setSubmit_URL(False)
+            self.local_settings.setSetting('Submit_File', 'true')
+            self.local_settings.setSetting('Submit_URL', 'false')
         else:
-            self.local_settings.setSubmit_File(False)
-            
-        # if self.Submit_URL_CB.isSelected():
-            # self.local_settings.setSubmit_URL(True)
-            # self.local_settings.setSubmit_File(False)
-        # else:
-            # self.local_settings.setSubmit_URL(False)
+            self.local_settings.setSetting('Submit_File', 'false')
             
     def onchange_lb(self, event):
         self.local_settings.cleartag_list()
         list_selected = self.List_Box_LB.getSelectedValuesList()
-        self.local_settings.settag_list(list_selected)      
+        self.local_settings.setSetting('tag_list', str(list_selected))      
 
     def find_tags(self):
         
@@ -353,61 +281,6 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
              self.tag_list.append(resultSet.getString("u_tag_name"))
         dbquery.close()
 
-    # Check to see if there are any entries that need to be populated from the database.        
-    def check_Database_entries(self):
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\gui_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings DB!")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = 'Select Protocol, cuckoo_host, cuckoo_port from cuckoo_server' 
-           resultSet = stmt.executeQuery(SQL_Statement)
-           while resultSet.next():
-               self.Protocol_TF.setText(resultSet.getString("Protocol"))
-               self.IP_Address_TF.setText(resultSet.getString("cuckoo_host"))
-               self.Port_Number_TF.setText(resultSet.getString("cuckoo_port"))
-               self.local_settings.setProtocol(resultSet.getString("Protocol"))
-               self.local_settings.setIP_Address(resultSet.getString("cuckoo_host"))
-               self.local_settings.setPort_Number(resultSet.getString("cuckoo_port"))
-           self.Error_Message.setText("Settings Read successfully!")
-        except SQLException as e:
-            self.Error_Message.setText("Error Reading Settings Database")
-
-        stmt.close()
-        dbConn.close()
-
-    # Save entries from the GUI to the database.
-    def SaveSettings(self, e):
-        
-        head, tail = os.path.split(os.path.abspath(__file__)) 
-        settings_db = head + "\\GUI_Settings.db3"
-        try: 
-            Class.forName("org.sqlite.JDBC").newInstance()
-            dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % settings_db)
-        except SQLException as e:
-            self.Error_Message.setText("Error Opening Settings")
- 
-        try:
-           stmt = dbConn.createStatement()
-           SQL_Statement = ""
-           SQL_Statement = 'Update cuckoo_server set Protocol = "' + self.Protocol_TF.getText() + '", ' + \
-                               '                     Cuckoo_Host = "' + self.IP_Address_TF.getText() + '", ' + \
-                               '                     Cuckoo_port = "' + self.Port_Number_TF.getText() + '";' 
-           
-           #self.Error_Message.setText(SQL_Statement)
-           stmt.execute(SQL_Statement)
-           self.Error_Message.setText("Cuckoo settings Saved")
-           #self.local_settings.setCuckoo_Directory(self.Program_Executable_TF.getText())
-        except SQLException as e:
-           self.Error_Message.setText(e.getMessage())
-        stmt.close()
-        dbConn.close()
-           
     # Check to see if the Cuckoo server is available and you can talk to it
     def Check_Server(self, e):
 
@@ -418,8 +291,14 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
        #self.log(Level.INFO, "Cuckoo Status is ==> " + out_text)
 
            
-    # def onchange_cb(self, event):
-        # self.local_settings.setComboBox(event.item) 
+    def setIPAddress(self, event):
+        self.local_settings.setSetting('IP_Address', self.IP_Address_TF.getText()) 
+
+    def setProtocol(self, event):
+        self.local_settings.setSetting('Protocol', self.Protocol_TF.getText()) 
+
+    def setPortNumber(self, event):
+        self.local_settings.setSetting('Port_Number', self.Port_Number_TF.getText()) 
 
     # Create the initial data fields/layout in the UI
     def initComponents(self):
@@ -443,7 +322,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_1, self.gbcPanel0 ) 
         self.panel0.add( self.Label_1 ) 
 
-        self.Protocol_TF = JTextField(20) 
+        self.Protocol_TF = JTextField(20, focusLost=self.setProtocol) 
         self.Protocol_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
         self.gbcPanel0.gridy = 1 
@@ -482,7 +361,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_2, self.gbcPanel0 ) 
         self.panel0.add( self.Label_2 ) 
 
-        self.IP_Address_TF = JTextField(20) 
+        self.IP_Address_TF = JTextField(20, focusLost=self.setIPAddress) 
         self.IP_Address_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
         self.gbcPanel0.gridy = 5 
@@ -521,7 +400,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.gbPanel0.setConstraints( self.Label_3, self.gbcPanel0 ) 
         self.panel0.add( self.Label_3 ) 
 
-        self.Port_Number_TF = JTextField(20) 
+        self.Port_Number_TF = JTextField(20, focusLost=self.setPortNumber) 
         self.Port_Number_TF.setEnabled(True)
         self.gbcPanel0.gridx = 4 
         self.gbcPanel0.gridy = 9 
@@ -548,37 +427,10 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.panel0.add( self.Blank_3 ) 
 
         
-        self.Save_Settings_BTN = JButton( "Save Setup", actionPerformed=self.SaveSettings) 
-        self.Save_Settings_BTN.setEnabled(True)
-        self.rbgPanel0.add( self.Save_Settings_BTN ) 
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 13
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Save_Settings_BTN, self.gbcPanel0 ) 
-        self.panel0.add( self.Save_Settings_BTN ) 
-
-        self.Blank_4 = JLabel( " ") 
-        self.Blank_4.setEnabled(True)
-        self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 15
-        self.gbcPanel0.gridwidth = 1 
-        self.gbcPanel0.gridheight = 1 
-        self.gbcPanel0.fill = GridBagConstraints.BOTH 
-        self.gbcPanel0.weightx = 1 
-        self.gbcPanel0.weighty = 0 
-        self.gbcPanel0.anchor = GridBagConstraints.NORTH 
-        self.gbPanel0.setConstraints( self.Blank_4, self.gbcPanel0 ) 
-        self.panel0.add( self.Blank_4 ) 
-
         self.Blank_5 = JLabel( "Tag to Choose: ") 
         self.Blank_5.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 17
+        self.gbcPanel0.gridy = 13
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -593,7 +445,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.List_Box_LB.setVisibleRowCount( 3 ) 
         self.scpList_Box_LB = JScrollPane( self.List_Box_LB ) 
         self.gbcPanel0.gridx = 4 
-        self.gbcPanel0.gridy = 17 
+        self.gbcPanel0.gridy = 13 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -606,7 +458,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Blank_6 = JLabel( " ") 
         self.Blank_6.setEnabled(True)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 19
+        self.gbcPanel0.gridy = 15
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -618,7 +470,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
         self.Submit_File_CB = JCheckBox("Submit a File", actionPerformed=self.checkBoxEvent)
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 21 
+        self.gbcPanel0.gridy = 17 
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -642,9 +494,9 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
 
         self.Check_Server_Status_BTN = JButton( "Check Server Status", actionPerformed=self.Check_Server) 
         self.Check_Server_Status_BTN.setEnabled(True)
-        self.rbgPanel0.add( self.Save_Settings_BTN ) 
+        self.rbgPanel0.add( self.Check_Server_Status_BTN ) 
         self.gbcPanel0.gridx = 2 
-        self.gbcPanel0.gridy = 25
+        self.gbcPanel0.gridy = 19
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -657,7 +509,7 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.Error_Message = JLabel( "") 
         self.Error_Message.setEnabled(True)
         self.gbcPanel0.gridx = 2
-        self.gbcPanel0.gridy = 27
+        self.gbcPanel0.gridy = 21
         self.gbcPanel0.gridwidth = 1 
         self.gbcPanel0.gridheight = 1 
         self.gbcPanel0.fill = GridBagConstraints.BOTH 
@@ -673,9 +525,12 @@ class CuckooSettingsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Custom load any data field and initialize the values
     def customizeComponents(self):
         #self.Exclude_File_Sources_CB.setSelected(self.local_settings.getExclude_File_Sources())
-        #self.Run_Cuckoo_CB.setSelected(self.local_settings.getRun_Cuckoo())
+        #self.Run_Cuckoo_CB.setSelected(self.local_settings.getSetting('Submit_File') == 'true')
         #self.Import_Cuckoo_CB.setSelected(self.local_settings.getImport_Cuckoo())
-        self.check_Database_entries()
+        self.Port_Number_TF.setText(self.local_settings.getSetting('Port_Number'))
+        self.IP_Address_TF.setText(self.local_settings.getSetting('IP_Address'))
+        self.Protocol_TF.setText(self.local_settings.getSetting('Protocol'))
+        
 
     # Return the settings used
     def getSettings(self):

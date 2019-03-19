@@ -64,7 +64,7 @@ from org.sleuthkit.autopsy.ingest import IngestModule
 from org.sleuthkit.autopsy.ingest.IngestModule import IngestModuleException
 from org.sleuthkit.autopsy.ingest import DataSourceIngestModule
 from org.sleuthkit.autopsy.ingest import IngestModuleFactoryAdapter
-from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettings
+from org.sleuthkit.autopsy.ingest import GenericIngestModuleJobSettings
 from org.sleuthkit.autopsy.ingest import IngestModuleIngestJobSettingsPanel
 from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
@@ -96,15 +96,15 @@ class Windows_InternalsIngestModuleFactory(IngestModuleFactoryAdapter):
         return "1.0"
     
     def getDefaultIngestJobSettings(self):
-        return Windows_InternalsWithUISettings()
+        return GenericIngestModuleJobSettings()
 
     def hasIngestJobSettingsPanel(self):
         return True
 
     # TODO: Update class names to ones that you create below
     def getIngestJobSettingsPanel(self, settings):
-        if not isinstance(settings, Windows_InternalsWithUISettings):
-            raise IllegalArgumentException("Expected settings argument to be instanceof SampleIngestModuleSettings")
+        if not isinstance(settings, GenericIngestModuleJobSettings):
+            raise IllegalArgumentException("Expected settings argument to be instanceof GenericIngestModuleJobSettings")
         self.settings = settings
         return Windows_InternalsWithUISettingsPanel(self.settings)
 
@@ -134,56 +134,56 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
     def startUp(self, context):
         self.context = context
 
-        if self.local_settings.getRecentlyused_Flag():
-            self.log(Level.INFO, "Recently Used ==> " + str(self.local_settings.getRecentlyused_Flag()))
+        if self.local_settings.getSetting('Recentlyused_Flag') == 'true':
+            self.log(Level.INFO, "Recently Used ==> " + str(self.local_settings.getSetting('Recentlyused_Flag')))
             self.path_to_Recentlyused_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "show_ccm_recentlyusedapps.exe")
             if not os.path.exists(self.path_to_Recentlyused_file):
                raise IngestModuleException("Recentlyused Executable does not exist")
 
-        if self.local_settings.getFilehistory_Flag():
-            self.log(Level.INFO, "File Hsitory ==> " + str(self.local_settings.getFilehistory_Flag()))
+        if self.local_settings.getSetting('Filehistory_Flag') == 'true':
+            self.log(Level.INFO, "File Hsitory ==> " + str(self.local_settings.getSetting('Filehistory_Flag')))
             self.path_to_Filehistory_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Export_FileHistory.exe")
             if not os.path.exists(self.path_to_Filehistory_file):
                raise IngestModuleException("Export_Filehistory Executable does not exist")
 
-        if self.local_settings.getJumplist_Flag():
-            self.log(Level.INFO, "Jumplist ==> " + str(self.local_settings.getJumplist_Flag()))
+        if self.local_settings.getSetting('Jumplist_Flag') == 'true':
+            self.log(Level.INFO, "Jumplist ==> " + str(self.local_settings.getSetting('Jumplist_Flag')))
             self.path_to_Jumplist_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_jl_ad.exe")
             if not os.path.exists(self.path_to_Jumplist_file):
                raise IngestModuleException("Jumplist Executable does not exist")
 
-        if self.local_settings.getPrefetch_Flag():
-            self.log(Level.INFO, "Prefetch ==> " + str(self.local_settings.getPrefetch_Flag()))
+        if self.local_settings.getSetting('Prefetch_Flag') == 'true':
+            self.log(Level.INFO, "Prefetch ==> " + str(self.local_settings.getSetting('Prefetch_Flag')))
             self.path_to_Prefetch_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prefetch_parser_autopsy.exe")
             if not os.path.exists(self.path_to_Prefetch_file):
                raise IngestModuleException("Prefetch Executable does not exist")
 
-        if self.local_settings.getSAM_Flag():
-            self.log(Level.INFO, "SAM ==> " + str(self.local_settings.getSAM_Flag()))
+        if self.local_settings.getSetting('SAM_Flag') == 'true':
+            self.log(Level.INFO, "SAM ==> " + str(self.local_settings.getSetting('SAM_Flag')))
             self.path_to_SAM_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samparse.exe")
             if not os.path.exists(self.path_to_SAM_file):
                raise IngestModuleException("SAM Executable does not exist")
 
-        if self.local_settings.getShellbags_Flag():
-            self.log(Level.INFO, "shellbags ==> " + str(self.local_settings.getShellbags_Flag()))
+        if self.local_settings.getSetting('Shellbags_Flag') == 'true':
+            self.log(Level.INFO, "shellbags ==> " + str(self.local_settings.getSetting('Shellbags_Flag')))
             self.path_to_Shellbags_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shellbags.exe")
             if not os.path.exists(self.path_to_Shellbags_file):
                raise IngestModuleException("Shellbags Executable does not exist")
 
-        if self.local_settings.getShimcache_Flag():
-            self.log(Level.INFO, "Shimcache ==> " + str(self.local_settings.getShimcache_Flag()))
+        if self.local_settings.getSetting('Shimcache_Flag') == 'true':
+            self.log(Level.INFO, "Shimcache ==> " + str(self.local_settings.getSetting('Shimcache_Flag')))
             self.path_to_Shimcache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shimcache_parser.exe")
             if not os.path.exists(self.path_to_Shimcache_file):
                raise IngestModuleException("Shimcache Executable does not exist")
 
-        if self.local_settings.getUsnj_Flag():
-            self.log(Level.INFO, "USN ==> " + str(self.local_settings.getUsnj_Flag()))
+        if self.local_settings.getSetting('Usnj_Flag') == 'true':
+            self.log(Level.INFO, "USN ==> " + str(self.local_settings.getSetting('Usnj_Flag')))
             self.path_to_Usnj_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parseusn.exe")
             if not os.path.exists(self.path_to_Usnj_file):
                raise IngestModuleException("Usnj Executable does not exist")
 
-        if self.local_settings.getWebcache_Flag():
-            self.log(Level.INFO, "Webcache ==> " + str(self.local_settings.getWebcache_Flag()))
+        if self.local_settings.getSetting('Webcache_Flag') == 'true':
+            self.log(Level.INFO, "Webcache ==> " + str(self.local_settings.getSetting('Webcache_Flag')))
             self.path_to_Webcache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Export_Webcache.exe")
             if not os.path.exists(self.path_to_Webcache_file):
                raise IngestModuleException("Webcache Executable does not exist")
@@ -204,21 +204,21 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
         
-        if self.local_settings.getRecentlyused_Flag():
+        if self.local_settings.getSetting('Recentlyused_Flag') == 'true':
             progressBar.progress("Processing Recently Used Apps")	
             self.process_Recentlyused(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Recentlyused Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getFilehistory_Flag():
+        if self.local_settings.getSetting('Filehistory_Flag') == 'true':
             progressBar.progress("Processing File History")	
             self.process_Filehistory(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " File History Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getJumplist_Flag():
+        if self.local_settings.getSetting('Jumplist_Flag') == 'true':
             progressBar.progress("Processing Jumplists")	
             self.log(Level.INFO, "Starting to process Jumplist")
             self.process_Jumplist(dataSource, progressBar)
@@ -226,42 +226,42 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
                 "Windows_Internals", " Jumplist Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getPrefetch_Flag():
+        if self.local_settings.getSetting('Prefetch_Flag') == 'true':
             progressBar.progress("Processing Prefetch")	
             self.process_Prefetch(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Prefetch Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getSAM_Flag():
+        if self.local_settings.getSetting('SAM_Flag') == 'true':
             progressBar.progress("Processing SAM")	
             self.process_SAM(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " SAM Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getShellbags_Flag():
+        if self.local_settings.getSetting('Shellbags_Flag') == 'true':
             progressBar.progress("Processing Shellbags")	
             self.process_Shellbags(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Shellbags Have Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getShimcache_Flag():
+        if self.local_settings.getSetting('Shimcache_Flag') == 'true':
             progressBar.progress("Processing Shimcache")	
             self.process_Shimcache(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Shimcache Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getUsnj_Flag():
+        if self.local_settings.getSetting('Usnj_Flag') == 'true':
             progressBar.progress("Processing UsnJ")	
             self.process_Usnj(dataSource, progressBar)        
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 "Windows_Internals", " Usnj Has Been Analyzed " )
             IngestServices.getInstance().postMessage(message)
 
-        if self.local_settings.getWebcache_Flag():
+        if self.local_settings.getSetting('Webcache_Flag') == 'true':
             progressBar.progress("Processing Webcache")	
             self.process_Webcache(dataSource, progressBar)
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
@@ -1998,80 +1998,6 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
 		    self.log(Level.INFO, "removal of Shellbag directory failed " + Temp_Dir)
     
     
-# Stores the settings that can be changed for each ingest job
-# All fields in here must be serializable.  It will be written to disk.
-class Windows_InternalsWithUISettings(IngestModuleIngestJobSettings):
-    serialVersionUID = 1L
-
-    def __init__(self):
-        self.Recentlyused_Flag = False
-        self.Jumplist_Flag = False
-        self.Prefetch_Flag = False
-        self.SAM_Flag = False
-        self.Shellbags_Flag = False
-        self.Shimcache_Flag = False
-        self.Usnj_Flag = False
-        self.Webcache_Flag = False
-        self.Filehistory_Flag = False
-
-    def getVersionNumber(self):
-        return serialVersionUID
-
-    # Define getters and settings for data you want to store from UI
-    def getRecentlyused_Flag(self):
-        return self.Recentlyused_Flag
-
-    def setRecentlyused_Flag(self, flag):
-        self.Recentlyused_Flag = flag
-
-    def getJumplist_Flag(self):
-        return self.Jumplist_Flag
-
-    def setJumplist_Flag(self, flag):
-        self.Jumplist_Flag = flag
-
-    def getPrefetch_Flag(self):
-        return self.Prefetch_Flag
-
-    def setPrefetch_Flag(self, flag):
-        self.Prefetch_Flag = flag
-
-    def getSAM_Flag(self):
-        return self.SAM_Flag
-
-    def setSAM_Flag(self, flag):
-        self.SAM_Flag = flag
-
-    def getShellbags_Flag(self):
-        return self.Shellbags_Flag
-
-    def setShellbags_Flag(self, flag):
-        self.Shellbags_Flag = flag
-
-    def getShimcache_Flag(self):
-        return self.Shimcache_Flag
-
-    def setShimcache_Flag(self, flag):
-        self.Shimcache_Flag = flag
-
-    def getUsnj_Flag(self):
-        return self.Usnj_Flag
-
-    def setUsnj_Flag(self, flag):
-        self.Usnj_Flag = flag
-
-    def getWebcache_Flag(self):
-        return self.Webcache_Flag
-
-    def setWebcache_Flag(self, flag):
-        self.Webcache_Flag = flag
-
-    def getFilehistory_Flag(self):
-        return self.Filehistory_Flag
-
-    def setFilehistory_Flag(self, flag):
-        self.Filehistory_Flag = flag
-        
 # UI that is shown to user for each ingest job so they can configure the job.
 class Windows_InternalsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     # Note, we can't use a self.settings instance variable.
@@ -2093,49 +2019,49 @@ class Windows_InternalsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
     def checkBoxEvent(self, event):
 
         if self.Recentlyused_CB.isSelected():
-            self.local_settings.setRecentlyused_Flag(True)
+            self.local_settings.setSetting('Recentlyused_Flag', 'true')
         else:
-            self.local_settings.setRecentlyused_Flag(False)
+            self.local_settings.setSetting('Recentlyused_Flag', 'false')
 
         if self.Filehistory_CB.isSelected():
-            self.local_settings.setFilehistory_Flag(True)
+            self.local_settings.setSetting('Filehistory_Flag', 'true')
         else:
-            self.local_settings.setFilehistory_Flag(False)
+            self.local_settings.setSetting('Filehistory_Flag', 'false')
 
         if self.Jumplist_CB.isSelected():
-            self.local_settings.setJumplist_Flag(True)
+            self.local_settings.setSetting('Jumplist_Flag', 'true')
         else:
-            self.local_settings.setJumplist_Flag(False)
+            self.local_settings.setSetting('Jumplist_Flag', 'false')
 
         if self.Prefetch_CB.isSelected():
-            self.local_settings.setPrefetch_Flag(True)
+            self.local_settings.setSetting('Prefetch_Flag', 'true')
         else:
-            self.local_settings.setPrefetch_Flag(False)
+            self.local_settings.setSetting('Prefetch_Flag', 'false')
 
         if self.SAM_CB.isSelected():
-            self.local_settings.setSAM_Flag(True)
+            self.local_settings.setSetting('SAM_Flag', 'true')
         else:
-            self.local_settings.setSAM_Flag(False)
+            self.local_settings.setSetting('SAM_Flag', 'false')
 
         if self.Shellbags_CB.isSelected():
-            self.local_settings.setShellbags_Flag(True)
+            self.local_settings.setSetting('Shellbags_Flag', 'true')
         else:
-            self.local_settings.setShellbags_Flag(False)
+            self.local_settings.setSetting('Shellbags_Flag', 'false')
 
         if self.Shimcache_CB.isSelected():
-            self.local_settings.setShimcache_Flag(True)
+            self.local_settings.setSetting('Shimcache_Flag', 'true')
         else:
-            self.local_settings.setShimcache_Flag(False)
+            self.local_settings.setSetting('Shimcache_Flag', 'false')
 
         if self.Usnj_CB.isSelected():
-            self.local_settings.setUsnj_Flag(True)
+            self.local_settings.setSetting('Usnj_Flag', 'true')
         else:
-            self.local_settings.setUsnj_Flag(False)
+            self.local_settings.setSetting('Usnj_Flag', 'false')
 
         if self.Webcache_CB.isSelected():
-            self.local_settings.setWebcache_Flag(True)
+            self.local_settings.setSetting('Webcache_Flag', 'true')
         else:
-            self.local_settings.setWebcache_Flag(False)
+            self.local_settings.setSetting('Webcache_Flag', 'false')
 
     def initComponents(self):
         self.panel0 = JPanel()
@@ -2255,15 +2181,15 @@ class Windows_InternalsWithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.add(self.panel0)
 
     def customizeComponents(self):
-        self.Jumplist_CB.setSelected(self.local_settings.getJumplist_Flag())
-        self.Filehistory_CB.setSelected(self.local_settings.getFilehistory_Flag())
-        self.Prefetch_CB.setSelected(self.local_settings.getPrefetch_Flag())
-        self.SAM_CB.setSelected(self.local_settings.getSAM_Flag())
-        self.Shellbags_CB.setSelected(self.local_settings.getShellbags_Flag())
-        self.Shimcache_CB.setSelected(self.local_settings.getShimcache_Flag())
-        self.Usnj_CB.setSelected(self.local_settings.getUsnj_Flag())
-        self.Webcache_CB.setSelected(self.local_settings.getWebcache_Flag())
-        self.Recentlyused_CB.setSelected(self.local_settings.getRecentlyused_Flag())
+        self.Jumplist_CB.setSelected(self.local_settings.getSetting('Jumplist_Flag') == 'true')
+        self.Filehistory_CB.setSelected(self.local_settings.getSetting('Filehistory_Flag') == 'true')
+        self.Prefetch_CB.setSelected(self.local_settings.getSetting('Prefetch_Flag') == 'true')
+        self.SAM_CB.setSelected(self.local_settings.getSetting('SAM_Flag') == 'true')
+        self.Shellbags_CB.setSelected(self.local_settings.getSetting('Shellbags_Flag') == 'true')
+        self.Shimcache_CB.setSelected(self.local_settings.getSetting('Shimcache_Flag') == 'true')
+        self.Usnj_CB.setSelected(self.local_settings.getSetting('Usnj_Flag') == 'true')
+        self.Webcache_CB.setSelected(self.local_settings.getSetting('Webcache_Flag') == 'true')
+        self.Recentlyused_CB.setSelected(self.local_settings.getSetting('Recentlyused_Flag') == 'true')
 
     # Return the settings used
     def getSettings(self):
