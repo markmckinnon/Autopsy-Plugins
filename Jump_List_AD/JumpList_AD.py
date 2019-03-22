@@ -114,10 +114,17 @@ class JumpListADDbIngestModule(DataSourceIngestModule):
         # Get path to EXE based on where this script is run from.
         # Assumes EXE is in same folder as script
         # Verify it is there before any ingest starts
-        self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_jl_ad.exe")
+        if PlatformUtil.isWindowsOS():
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_jl_ad.exe")
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("EXE was not found in module folder")
+        elif PlatformUtil.getOSName() == 'Linux':
+            self.path_to_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Export_JL_Ad')
+            if not os.path.exists(self.path_to_exe):
+                raise IngestModuleException("Linux Executable was not found in module folder")
+
         self.path_to_app_id_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Jump_List_App_Ids.db3")
-        if not os.path.exists(self.path_to_exe):
-            raise IngestModuleException("EXE was not found in module folder")
+         
         
         # Throw an IngestModule.IngestModuleException exception if there was a problem setting up
         # raise IngestModuleException(IngestModule(), "Oh No!")
@@ -270,11 +277,12 @@ class JumpListADDbIngestModule(DataSourceIngestModule):
 		
         # Create Event Log directory in temp directory, if it exists then continue on processing		
         Temp_Dir = Case.getCurrentCase().getTempDirectory()
-        self.log(Level.INFO, "create Directory " + Temp_Dir + "\JL_AD")
+        temp_dir = os.path.join(Temp_Dir, "JL_AD")
+        self.log(Level.INFO, "create Directory " + temp_dir)
         try:
-		    os.mkdir(Temp_Dir + "\JL_AD")
+		    os.mkdir(temp_dir)
         except:
-		    self.log(Level.INFO, "JL_AD Directory already exists " + Temp_Dir)
+		    self.log(Level.INFO, "JL_AD Directory already exists " + temp_dir)
 			
         # Write out each Event Log file to the temp directory
         for file in files:
@@ -287,25 +295,18 @@ class JumpListADDbIngestModule(DataSourceIngestModule):
             fileCount += 1
 
             # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            lclDbPath = os.path.join(Temp_Dir + "\JL_AD", file.getName())
+            lclDbPath = os.path.join(temp_dir, file.getName())
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
-
-        # Example has only a Windows EXE, so bail if we aren't on Windows
-        if not PlatformUtil.isWindowsOS(): 
-            self.log(Level.INFO, "Ignoring data source.  Not running on Windows")
-            return IngestModule.ProcessResult.OK
-
         # Run the EXE, saving output to a sqlite database
-        self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "\JL_AD" + "  Parm 2 ==> " + Temp_Dir + "\JL_AD.db3")
-        output = subprocess.Popen([self.path_to_exe, Temp_Dir + "\JL_AD", Temp_Dir + "\JL_AD.db3", self.path_to_app_id_db], stdout=subprocess.PIPE).communicate()[0]
-        
+        self.log(Level.INFO, "Running program on data source parm 1 ==> " + temp_dir + "  Parm 2 ==> " + Temp_Dir + "\JL_AD.db3")
+        output = subprocess.Popen([self.path_to_exe, temp_dir, os.path.join(Temp_Dir, "JL_AD.db3"), self.path_to_app_id_db], stdout=subprocess.PIPE).communicate()[0]
         
         #self.log(Level.INFO, "Output for the JL_AD program ==> " + output)
         self.log(Level.INFO, " Return code is ==> " + output)
  			
         # Set the database to be read to the one created by the Event_EVTX program
-        lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "JL_AD.db3")
+        lclDbPath = os.path.join(Temp_Dir, "JL_AD.db3")
         self.log(Level.INFO, "Path to the JL_AD database file created ==> " + lclDbPath)
                         
         # Open the DB using JDBC
@@ -419,19 +420,22 @@ class JumpListADDbIngestModule(DataSourceIngestModule):
         skCase_Tran.commit()
         stmt.close()
         dbConn.close()
-        os.remove(lclDbPath)
+        try:
+            os.remove(lclDbPath)
+        except:
+			self.log(Level.INFO, "Failed to remove the file " + lclDbPath)
         #skCase.close()
 			
 		#Clean up EventLog directory and files
         for file in files:
             try:
-			    os.remove(Temp_Dir + "\\" + file.getName())
+			    os.remove(os.path.join(temp_dir, file.getName()))
             except:
-			    self.log(Level.INFO, "removal of JL_AD file failed " + Temp_Dir + "\\" + file.getName())
+			    self.log(Level.INFO, "removal of JL_AD file failed " + os.path.join(temp_dir, file.getName()))
         try:
-             os.rmdir(Temp_Dir)		
+             os.rmdir(temp_dir)		
         except:
-		     self.log(Level.INFO, "removal of JL_AD directory failed " + Temp_Dir)
+		     self.log(Level.INFO, "removal of JL_AD directory failed " + temp_dir)
             
         # After all databases, post a message to the ingest messages in box.
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,

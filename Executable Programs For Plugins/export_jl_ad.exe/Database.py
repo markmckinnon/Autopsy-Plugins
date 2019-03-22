@@ -1,22 +1,3 @@
-# Database.py = Python class for database access
-#
-# Copyright (C) 2016 Mark McKinnon (Mark.McKinnon@Davenport.edu)
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You can view the GNU General Public License at <http://www.gnu.org/licenses/>
-#
-# Version History:
-#  Initial Version - March 2016
-# 
 #Classes to connect, create, read from and write to SQLite databases.
 
 import os
@@ -165,7 +146,7 @@ class SQLiteDb(object):
     if self.read_only:
       raise RuntimeError(u'Cannot create table database in read-only mode.')
 
-    sql_query = u'CREATE Temp TABLE {0:s} ( {1:s} )'.format(
+    sql_query = u'CREATE Temp TABLE If Not Exists {0:s} ( {1:s} )'.format(
         table_name, column_definitions)
 
     self._cursor.execute(sql_query)

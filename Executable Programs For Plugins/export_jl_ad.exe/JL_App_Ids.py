@@ -1,24 +1,3 @@
-# JL_App_Ids.py = Python class for database access of Jump Lists
-#
-# Copyright (C) 2016 Mark McKinnon (Mark.McKinnon@Davenport.edu)
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You can view the GNU General Public License at <http://www.gnu.org/licenses/>
-#
-# Version History:
-#  Initial Version - April 2016
-# 
-#Classes to connect, create, read from and write to Jumplist databases.
-
 import sqlite3
 import os
 import sys
@@ -68,11 +47,15 @@ class JL_App_Ids(object):
 
     sql_query = "Select AppID, App_Desc, Date_Added, source from application_ids Where upper(AppID) = Upper('" + App_Id + "');"
 
-    self._cursor.execute(sql_query)
-    if self._cursor.fetchone():
-      has_app_id = True
-    else:
-      has_app_id = False
+    try:
+        self._cursor.execute(sql_query)
+        if self._cursor.fetchone():
+          has_app_id = True
+        else:
+          has_app_id = False
+    except:
+        has_app_id = False
+
     return has_app_id
 
   def SelectAppId (self, App_Id):
