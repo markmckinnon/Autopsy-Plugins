@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Autopsy_Python_Plugins"
-!define PRODUCT_VERSION "1.1"
+!define PRODUCT_VERSION "1.2"
 ;!define PRODUCT_PUBLISHER "Redwolf Computer Forensics"
 ;!define PRODUCT_WEB_SITE "http://RedWolfComputerForensics.com"
 ;!define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\MFT_Parser_Gui.exe"
@@ -79,7 +79,6 @@ Section "Cuckoo" SEC03
   SetOverwrite try
   File "..\Cuckoo\cuckoo.py"
   File "..\Cuckoo\cuckoo_api.exe"
-  File "..\Cuckoo\gui_settings.db3"
 
 SectionEnd
   
@@ -270,18 +269,10 @@ Section "Process Prefetch Files" SEC20
   CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy Libs"
   SetOutPath "$APPDATA\Autopsy\Python_modules\Process_Prefetch_Files_V41"
   SetOverwrite try
-  File "..\Process_Prefetch_Files_V41\MSCompression.dll"
-  File "..\Process_Prefetch_Files_V41\MSCompression_dll_License_gpl.txt"
   File "..\Process_Prefetch_Files_V41\ParsePrefetch_py_GPL_License.txt"
   File "..\Process_Prefetch_Files_V41\ParsePrefetch_v41.py"
-  File "..\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy.exe"
-  File "..\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy_Exe_License.txt"
-  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy Libs"
-  SetOverwrite try
-  File "..\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy Libs\msvcp120.dll"
-  File "..\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy Libs\msvcr120.dll"
-  File "..\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy Libs\REALSQLDatabase.dll"
-  File "..\Process_Prefetch_Files_V41\Prefetch_Parser_Autopsy Libs\XojoConsoleFramework32.dll"
+  File "..\Process_Prefetch_Files_V41\parse_prefetch.exe"
+  File "..\Process_Prefetch_Files_V41\parse_prefetch_exe_GPL_License.txt"
   
 SectionEnd
 
@@ -372,12 +363,10 @@ Section "Windows Internals" SEC27
   File "..\Windows_Internals\Export_Webcache_records.exe"
   File "..\Windows_Internals\export_Webcache_records_Exe_License.txt"
   File "..\Windows_Internals\Jump_List_App_Ids.db3"
-  File "..\Windows_Internals\MSCompression.dll"
-  File "..\Windows_Internals\MSCompression_dll_License_gpl.txt"
   File "..\Windows_Internals\parseusn.exe"
   File "..\Windows_Internals\parseusn_Exe_License.txt"
-  File "..\Windows_Internals\Prefetch_Parser_Autopsy.exe"
-  File "..\Windows_Internals\Prefetch_Parser_Autopsy_Exe_License.txt"
+  File "..\Windows_Internals\parse_prefetch.exe"
+  File "..\Windows_Internals\parse_prefetch_exe_GPL_License.txt"
   File "..\Windows_Internals\samparse.exe"
   File "..\Windows_Internals\Samparse_Exe_License.txt"
   File "..\Windows_Internals\shellbags.exe"
@@ -388,13 +377,6 @@ Section "Windows Internals" SEC27
   File "..\Windows_Internals\show_ccm_recentlyusedapps_GPL_License.txt"
   File "..\Windows_Internals\Windows_Internals.py"
   File "..\Windows_Internals\Windows_Internals_py_GPL_License.txt"
-
-  SetOutPath "$APPDATA\Autopsy\Python_modules\Windows_Internals\Prefetch_Parser_Autopsy Libs"
-  SetOverwrite try
-  File "..\Windows_Internals\Prefetch_Parser_Autopsy Libs\msvcp120.dll"
-  File "..\Windows_Internals\Prefetch_Parser_Autopsy Libs\msvcr120.dll"
-  File "..\Windows_Internals\Prefetch_Parser_Autopsy Libs\REALSQLDatabase.dll"
-  File "..\Windows_Internals\Prefetch_Parser_Autopsy Libs\XojoConsoleFramework32.dll"
 
 SectionEnd
 
@@ -462,10 +444,69 @@ Section "Spotlight Parser" SEC33
 
 SectionEnd
   
+Section "Create Datasource Hashset" SEC34
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Create_Datasource_Hashset"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Create_Datasource_Hashset"
+  SetOverwrite try
+  File "..\Create_Datasource_Hashset\Create_Datasource_Hashset.py"
+  File "..\Create_Datasource_Hashset\Create_Datasource_Hashset_py_GPL_License.txt"
+
+SectionEnd
+
+Section "Process_ActivitiesCache" SEC35
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_ActivitiesCache"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_ActivitiesCache"
+  SetOverwrite try
+  File "..\Process_ActivitiesCache\Process_ActivitiesCache.py"
+  File "..\Process_ActivitiesCache\Process_ActivitiesCache_py_GPL_License.txt"
+
+SectionEnd
+
+Section "Process_Appxreg_Programs" SEC36
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_Appxreg_Programs"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_Appxreg_Programs"
+  SetOverwrite try
+  File "..\Process_Appxreg_Programs\Process_Appxreg_Programs.py"
+  File "..\Process_Appxreg_Programs\Process_Appxreg_Programs_py_GPL_License.txt"
+  File "..\Process_Appxreg_Programs\appxreg.exe"
+  File "..\Process_Appxreg_Programs\Appxreg_exe_GPL_License.txt"
+
+SectionEnd
+
+Section "Process_TeraCopy" SEC37
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Process_TeraCopy"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Process_TeraCopy"
+  SetOverwrite try
+  File "..\Process_TeraCopy\Process_TeraCopy.py"
+  File "..\Process_TeraCopy\Process_TeraCopy_py_GPL_License.txt"
+
+SectionEnd
+
+Section "Remove_Artifacts" SEC38
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Remove_Artifacts"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Remove_Artifacts"
+  SetOverwrite try
+  File "..\Remove_Artifacts\Remove_Artifacts.py"
+  File "..\Remove_Artifacts\Remove_Artifacts_py_GPL_License.txt"
+
+SectionEnd
+
+Section "Timesketch" SEC39
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Timesketch"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Timesketch"
+  SetOverwrite try
+  File "..\Timesketch\Timesketch.py"
+  File "..\Timesketch\Timesketch_py_GPL_License.txt"
+  File "..\Timesketch\timesketch_autopsy.exe"
+  File "..\Timesketch\timesketch_autopsy_exe_GPL_License.txt"
+
+SectionEnd
+
 ; Section descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Amazon Echosystem Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC02} "CCM RecentlyUsedApps"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC34} "Create Datasource Hashset"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC28} "Create Preview Data Container"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC03} "Cuckoo"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC04} "File History"
@@ -481,19 +522,24 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC13} "Parse SQLite Deleted Records"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC14} "Parse USNJ"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC15} "Plaso"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC35} "Process Activities Cache"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC16} "Process Amcache"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC30} "Process APPX Programs"  
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC30} "Process APPX Programs" 
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC36} "Process Appxreg Programs"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC17} "Process EVTX"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC18} "Process EVTX By EventID"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC19} "Process Extract VSS"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC31} "Process Facebook Chats"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC20} "Process Prefetch Files"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC21} "Process SRUDB"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC37} "Process_TeraCopy"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC32} "Process Windows Mail"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC38} "Remove Artifacts"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC22} "Shimcache Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC33} "Spotlight Parser"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC23} "Thumbcache Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC24} "Thumbs.db Parser"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC39} "Timesketch"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC25} "Volatility"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC26} "Webcache"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC27} "Windows Internals"
