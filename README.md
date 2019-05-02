@@ -8,6 +8,9 @@ Here is a brief overview of all of the plugins.
 ### Amazon Echosystem Parser
 Parse the databases from an Amazon Alexa image.
 
+### BAM Key
+Parse the BAM key from the registry.
+
 ### CCM Recently Used Apps
 Parse the WMI(<insert acronym here>) database for Recently used apps.
 
@@ -62,7 +65,7 @@ Parse any SQLite databases and look for deleted records.  It will then create a 
 ### Parse Usnj
 Export the $UsnJrnl:$J and then call the command line version of parseusn program.  A SQLite database that contains the NTFS UsrJrnl information is created and imported into the extracted view section of Autopsy.
 
-### Plaso
+### Plaso (2 Plugins in this directory)
 Execute plaso or import a plaso file.
 
 ### Process Activities Cache
@@ -101,6 +104,9 @@ Process the Teracopy database
 ### Process Windows Mail
 Process Windows Mail store and added messages to communication manager.
 
+### Recycle Bin
+Process the Recycle Bin in Windows Vista and later
+
 ### Remove Artifacts
 Will remove custom artifacts and attributes from a case.  For developer use.
 
@@ -119,7 +125,7 @@ Export all the thumbs.db files in the image and then run the [thumbs_viewer](htt
 ### Timesketch
 Export all date/time data to a Timesketch server
 
-### Volatility
+### Volatility (3 plugins in this directory)
 Execute Volatility against a memory image.  It will ask the user for the directory where the Volatility executable reside then it will run volatility against the memory image using options the user specifies.
 
 ### Webcache
