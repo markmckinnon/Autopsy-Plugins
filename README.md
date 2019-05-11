@@ -5,7 +5,7 @@ This is a repository of Autopsy Python Plugins.  You can download all of them an
 ## Plugin Overview
 Here is a brief overview of all of the plugins.
 
-### Amazon Echosystem Parser
+### [Amazon Echosystem Parser]((./Amazon_Echosystem_Parser/README.md)
 Parse the databases from an Amazon Alexa image.
 
 ### BAM Key
@@ -14,7 +14,7 @@ Parse the BAM key from the registry.
 ### CCM Recently Used Apps
 Parse the WMI(<insert acronym here>) database for Recently used apps.
 
-## Create Data Source Hashset
+### Create Data Source Hashset
 Will create a file with the hashset of a data source that can then be pulled back into Autopsy as a hash set.
 
 ### Create Preview Data Container
