@@ -31,21 +31,21 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - May 2019
+#   Version 1.1 - Remove external program dependecy and use rejistry 
 # 
 
-import jarray
-import inspect
 import os
-from subprocess import Popen, PIPE
-import csv
 import shutil
 import struct
 import binascii
+import codecs
 
-
+from com.williballenthin.rejistry import RegistryHiveFile
+from com.williballenthin.rejistry import RegistryKey
+from com.williballenthin.rejistry import RegistryParseException
+from com.williballenthin.rejistry import RegistryValue
 from java.lang import Class
 from java.lang import System
-from java.sql  import DriverManager, SQLException
 from java.util.logging import Level
 from java.io import File
 from org.sleuthkit.datamodel import SleuthkitCase
@@ -64,7 +64,6 @@ from org.sleuthkit.autopsy.ingest import IngestMessage
 from org.sleuthkit.autopsy.ingest import IngestServices
 from org.sleuthkit.autopsy.ingest import ModuleDataEvent
 from org.sleuthkit.autopsy.coreutils import Logger
-from org.sleuthkit.autopsy.coreutils import PlatformUtil
 from org.sleuthkit.autopsy.casemodule import Case
 from org.sleuthkit.autopsy.casemodule.services import Services
 from org.sleuthkit.autopsy.casemodule.services import FileManager
@@ -73,7 +72,7 @@ from org.sleuthkit.autopsy.datamodel import ContentUtils
 
 # Factory that defines the name and details of the module and allows Autopsy
 # to create instances of the modules that will do the analysis.
-class RecBinIngestModuleFactory(IngestModuleFactoryAdapter):
+class RecBin2IngestModuleFactory(IngestModuleFactoryAdapter):
 
     def __init__(self):
         self.settings = None
@@ -87,7 +86,7 @@ class RecBinIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Parse Recycle Bin Information for Vista and beyond"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.1"
     
     def hasIngestJobSettingsPanel(self):
         return False
@@ -96,12 +95,12 @@ class RecBinIngestModuleFactory(IngestModuleFactoryAdapter):
         return True
 
     def createDataSourceIngestModule(self, ingestOptions):
-        return RecBinIngestModule(self.settings)
+        return RecBin2IngestModule(self.settings)
 
 # Data Source-level ingest module.  One gets created per data source.
-class RecBinIngestModule(DataSourceIngestModule):
+class RecBin2IngestModule(DataSourceIngestModule):
 
-    _logger = Logger.getLogger(RecBinIngestModuleFactory.moduleName)
+    _logger = Logger.getLogger(RecBin2IngestModuleFactory.moduleName)
 
     def log(self, level, msg):
         self._logger.logp(level, self.__class__.__name__, inspect.stack()[1][3], msg)
@@ -112,27 +111,13 @@ class RecBinIngestModule(DataSourceIngestModule):
     # Where any setup and configuration is done
     def startUp(self, context):
         self.context = context
-
-        # Get path to EXE based on where this script is run from.
-        # Assumes EXE is in same folder as script
-        # Verify it is there before any ingest starts
-        if PlatformUtil.isWindowsOS():
-            self.pathToExe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_rid.exe")
-            if not os.path.exists(self.pathToExe):
-                raise IngestModuleException("EXE was not found in module folder")
-        elif PlatformUtil.getOSName() == 'Linux':
-            self.pathToExe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'user_rid')
-            if not os.path.exists(self.pathToExe):
-                raise IngestModuleException("Linux Executable was not found in module folder")
-
+        self.registryKeyToFind = 'SAM/Domains/Account/Users'
+        
     # Where the analysis is done.
     def process(self, dataSource, progressBar):
 
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
-        
-        # Registry files to export
-        filesToExtract = ("SAM", "SAM.LOG1", "SAM.LOG2")
         
         skCase = Case.getCurrentCase().getSleuthkitCase();
         fileManager = Case.getCurrentCase().getServices().getFileManager()
@@ -147,32 +132,29 @@ class RecBinIngestModule(DataSourceIngestModule):
 		    self.log(Level.INFO, "recyclebin Directory already exists " + temp_dir)
 
         systemAbsFile = []
-        for fileName in filesToExtract:
-            files = fileManager.findFiles(dataSource, fileName, "Windows/System32/Config")
-            numFiles = len(files)
-            self.log(Level.INFO, "Number of SAM Files found ==> " + str(numFiles))
-            
-            for file in files:
-            
-                # Check if the user pressed cancel while we were busy
-                if self.context.isJobCancelled():
-                    return IngestModule.ProcessResult.OK
+        files = fileManager.findFiles(dataSource, "SAM", "Windows/System32/Config")
+        numFiles = len(files)
+        self.log(Level.INFO, "Number of SAM Files found ==> " + str(numFiles))
+        
+        userRids = {}
+        
+        for file in files:
+        
+            # Check if the user pressed cancel while we were busy
+            if self.context.isJobCancelled():
+                return IngestModule.ProcessResult.OK
 
-                
-                #self.log(Level.INFO, "Parent Path ==> " + str(file.getParentPath()))
-                if file.getParentPath() == '/Windows/System32/Config/':    
-                    # Save the DB locally in the temp folder. use file id as name to reduce collisions
-                    lclDbPath = os.path.join(temp_dir, file.getName())
-                    ContentUtils.writeToFile(file, File(lclDbPath))
-                else:
-                    self.log(Level.INFO, "Skipping File " + file.getName() + " In Path " + file.getParentPath())
+            
+            #self.log(Level.INFO, "Parent Path ==> " + str(file.getParentPath()))
+            if file.getParentPath() == '/Windows/System32/Config/':    
+                # Save the DB locally in the temp folder. use file id as name to reduce collisions
+                lclDbPath = os.path.join(temp_dir, file.getName())
+                ContentUtils.writeToFile(file, File(lclDbPath))
+                # Process the SAM Registry File getting the Username and RID
+                userRids = self.processSAMFile(lclDbPath)
+            else:
+                self.log(Level.INFO, "Skipping File " + file.getName() + " In Path " + file.getParentPath())
 
-        # Run the EXE, saving output to a csv file
-        self.log(Level.INFO, "Running program on " + self.pathToExe + " " + temp_dir + "  " + os.path.join(temp_dir, 'user_rids.csv'))
-        pipe = Popen([self.pathToExe, temp_dir, os.path.join(temp_dir, "user_rids.csv")], stdout=PIPE, stderr=PIPE)
-        outText = pipe.communicate()[0]
-        self.log(Level.INFO, "Output from run is ==> " + outText) 
-                    
         # Setup Artifact and Attributes
         try:
             self.log(Level.INFO, "Begin Create New Artifacts")
@@ -195,21 +177,6 @@ class RecBinIngestModule(DataSourceIngestModule):
         artifactName = "TSK_RECYCLE_BIN"
         artId = skCase.getArtifactTypeID(artifactName)
         attIdUserName = skCase.getAttributeType("TSK_USER_NAME")
-
-        # Read CSV File 
-        headingRead = False
-        attributeNames = []
-        userRids = {}
-        with open(os.path.join(temp_dir, 'user_rids.csv'), 'rU') as csvfile:
-            csvreader = csv.reader(csvfile, delimiter=',', quotechar='|')
-            for row in csvreader:
-                if not headingRead:
-                    for colName in row:
-                        attributeNames.append(colName.upper().strip())
-                    headingRead = True
-                else: 
-                    userRids[str(row[0])] = row[1]
-        self.log(Level.INFO, "users ==> " + str(userRids))                    
 
         iFiles = fileManager.findFiles(dataSource, "$I%")
         numFiles = len(files)
@@ -238,16 +205,15 @@ class RecBinIngestModule(DataSourceIngestModule):
                         self.log(Level.INFO, "Parent Path ==> " + iFile.getParentPath())
                         startSearch = iFile.getParentPath().rfind("-")
                         userRid = iFile.getParentPath()[startSearch + 1:].replace('/','')
-                        art.addAttribute(BlackboardAttribute(attIdUserName, RecBinIngestModuleFactory.moduleName, userRids[userRid]))
-                        art.addAttribute(BlackboardAttribute(attIdFilePath, RecBinIngestModuleFactory.moduleName, fileNamePath))
-                        art.addAttribute(BlackboardAttribute(attIdDelTime, RecBinIngestModuleFactory.moduleName, deletedTimeStamp))
+                        art.addAttribute(BlackboardAttribute(attIdUserName, RecBin2IngestModuleFactory.moduleName, userRids[userRid]))
+                        art.addAttribute(BlackboardAttribute(attIdFilePath, RecBin2IngestModuleFactory.moduleName, fileNamePath))
+                        art.addAttribute(BlackboardAttribute(attIdDelTime, RecBin2IngestModuleFactory.moduleName, deletedTimeStamp))
         
 		#Clean up recyclebin directory and files
         try:
              shutil.rmtree(temp_dir)		
         except:
 		     self.log(Level.INFO, "removal of directory tree failed " + temp_dir)
- 
         
         # After all databases, post a message to the ingest messages in box.
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
@@ -283,6 +249,57 @@ class RecBinIngestModule(DataSourceIngestModule):
 
         return None, None
         
+    def processSAMFile(self, samHive):
+    
+        userId = {}
+        samRegFile = RegistryHiveFile(File(samHive))
+        currentKey = self.findRegistryKey(samRegFile, self.registryKeyToFind)
+        samKey = currentKey.getSubkeyList()   
+        for sk in samKey:
+            registryKey = sk.getName()
+            skValues = sk.getValueList()
+            if len(skValues) > 0:
+                for skVal in skValues:
+                    if skVal.getName() == 'V':
+                        value = skVal.getValue()
+                        binData = value.getAsRawData()
+                        hexArray = ""
+                        arrayLength = binData.remaining()
+                        for x in range(0, arrayLength):
+                            binByte = binData.get()
+                            # Have to check if this is a negative number or not.  Byte will be returned -127 to 127 instead of 0 to 255
+                            if binByte < 0:
+                                binByte = 256 + binByte
+                            hexArray = hexArray + chr(binByte)
+                        pos1 = int(str(struct.unpack_from('<l', hexArray[4:])[0]))
+                        pos3 = int(str(struct.unpack_from('<l', hexArray[12:])[0])) + 204 
+                        pos4 = int(str(struct.unpack_from('<l', hexArray[16:])[0]))
+                        pos6 = int(str(struct.unpack_from('<l', hexArray[24:])[0])) + 204
+                        pos7 = int(str(struct.unpack_from('<l', hexArray[28:])[0]))
+                        pos9 = int(str(struct.unpack_from('<l', hexArray[36:])[0])) + 204
+                        pos10 = int(str(struct.unpack_from('<l', hexArray[40:])[0]))
+                        fmtStringName = "<" + str(pos4) + "s"		  
+                        fmtStringFullname = ">" + str(pos7) + "s"
+                        fmtStringComment = ">" + str(pos10) + "s"
+                        userName = struct.unpack_from(fmtStringName, hexArray[pos3:])[0]
+                        fullName = struct.unpack_from(fmtStringFullname, hexArray[pos6:])[0]
+                        comment = struct.unpack_from(fmtStringComment, hexArray[pos9:])[0]
+                        userName = self.utf16decode(userName)
+                        userId[str(int(registryKey, 16))] = userName
+
+        return userId
+
+    def findRegistryKey(self, registryHiveFile, registryKey):
+    
+        rootKey = registryHiveFile.getRoot()
+        regKeyList = registryKey.split('/')
+        currentKey = rootKey
+        for key in regKeyList:
+            self.log(Level.INFO, "Key value is ==> " + key)
+            self.log(Level.INFO, "Current Key is ==> " + str(currentKey))
+            currentKey = currentKey.getSubkey(key) 
+        return currentKey   
+
     def utf16decode(self, bytes):
 
         ## Take the UTF-16LE encoded strings as bytes and convert to a UTF-8 string. Jython-compatible.
@@ -294,3 +311,4 @@ class RecBinIngestModule(DataSourceIngestModule):
         bytes = (''.join(filter(lambda a: a !='00', bytes)))
         bytes = codecs.decode(bytes, 'hex')
         return(bytes)
+        
