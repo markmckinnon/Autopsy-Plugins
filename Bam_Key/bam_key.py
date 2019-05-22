@@ -32,20 +32,27 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - April 2019
+#   Version 1.1 - Remove external program dependency and use internal rejistry
 # 
 
-import jarray
+#import jarray
 import inspect
 import os
-from subprocess import Popen, PIPE
-import csv
 import shutil
+import struct
+import binascii
+import codecs
 
+from com.williballenthin.rejistry import RegistryHiveFile
+from com.williballenthin.rejistry import RegistryKey
+from com.williballenthin.rejistry import RegistryParseException
+from com.williballenthin.rejistry import RegistryValue
+from java.io import File
 from java.lang import Class
 from java.lang import System
 from java.sql  import DriverManager, SQLException
 from java.util.logging import Level
-from java.io import File
+from java.util import ArrayList
 from org.sleuthkit.datamodel import SleuthkitCase
 from org.sleuthkit.datamodel import AbstractFile
 from org.sleuthkit.datamodel import ReadContentInputStream
@@ -85,7 +92,7 @@ class BamKeyIngestModuleFactory(IngestModuleFactoryAdapter):
         return "Extract BAM Registry Information"
     
     def getModuleVersionNumber(self):
-        return "1.0"
+        return "1.1"
     
     def hasIngestJobSettingsPanel(self):
         return False
@@ -108,34 +115,20 @@ class BamKeyIngestModule(DataSourceIngestModule):
         self.context = None
  
     # Where any setup and configuration is done
-    # 'context' is an instance of org.sleuthkit.autopsy.ingest.IngestJobContext.
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_ingest_job_context.html
     def startUp(self, context):
         self.context = context
-
-        # Get path to EXE based on where this script is run from.
-        # Assumes EXE is in same folder as script
-        # Verify it is there before any ingest starts
-        if PlatformUtil.isWindowsOS():
-            self.pathToExe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bam_key.exe")
-            if not os.path.exists(self.pathToExe):
-                raise IngestModuleException("EXE was not found in module folder")
-        elif PlatformUtil.getOSName() == 'Linux':
-            self.pathToExe = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bam_key')
-            if not os.path.exists(self.pathToExe):
-                raise IngestModuleException("Linux Executable was not found in module folder")
+        # Hive Keys to parse, use / as it is easier to parse out then \\
+        self.registrySAMKey = 'SAM/Domains/Account/Users'
+        self.registryBamKey = 'controlset001/services/bam/UserSettings'
 
     # Where the analysis is done.
-    # The 'dataSource' object being passed in is of type org.sleuthkit.datamodel.Content.
-    # See:x http://www.sleuthkit.org/sleuthkit/docs/jni-docs/interfaceorg_1_1sleuthkit_1_1datamodel_1_1_content.html
-    # 'progressBar' is of type org.sleuthkit.autopsy.ingest.DataSourceIngestModuleProgress
-    # See: http://sleuthkit.org/autopsy/docs/api-docs/3.1/classorg_1_1sleuthkit_1_1autopsy_1_1ingest_1_1_data_source_ingest_module_progress.html
     def process(self, dataSource, progressBar):
 
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
-        
-        filesToExtract = ("SAM", "SAM.LOG1", "SAM.LOG2", "SYSTEM", "SYSTEM.LOG1", "SYSTEM.LOG2")
+
+        # Hive files to extract        
+        filesToExtract = ("SAM", "SYSTEM")
         
         # Set the database to be read to the once created by the prefetch parser program
         skCase = Case.getCurrentCase().getSleuthkitCase();
@@ -150,35 +143,34 @@ class BamKeyIngestModule(DataSourceIngestModule):
         except:
 		    self.log(Level.INFO, "bam Directory already exists " + temp_dir)
 
-        systemAbsFile = []
+        # Setup variables to use to store information
+        systemHiveFile = []
+        userRids = {}
+        bamRecord = []
+        
         for fileName in filesToExtract:
             files = fileManager.findFiles(dataSource, fileName, "Windows/System32/Config")
             numFiles = len(files)
-            #self.log(Level.INFO, "Number of SAM Files found ==> " + str(numFiles))
-            
+
             for file in files:
             
                 # Check if the user pressed cancel while we were busy
                 if self.context.isJobCancelled():
                     return IngestModule.ProcessResult.OK
 
-                
-                #self.log(Level.INFO, "Parent Path ==> " + str(file.getParentPath()))
-                if file.getParentPath() == '/Windows/System32/config/':    
+                # Check path to only get the hive files in the config directory and no others
+                if file.getParentPath().upper() == '/WINDOWS/SYSTEM32/CONFIG/':    
                     # Save the DB locally in the temp folder. use file id as name to reduce collisions
-                    lclDbPath = os.path.join(temp_dir, file.getName())
-                    ContentUtils.writeToFile(file, File(lclDbPath))
+                    filePath = os.path.join(temp_dir, file.getName())
+                    ContentUtils.writeToFile(file, File(filePath))
+                    # Save SYSTEM Hive abstract file information to use later
                     if file.getName() == 'SYSTEM':
-                       systemAbsFile = file
-                else:
-                    self.log(Level.INFO, "Skipping File " + file.getName() + " In Path " + file.getParentPath())
-
-        # Run the EXE, saving output to a sqlite database
-        self.log(Level.INFO, "Running program on " + self.pathToExe + temp_dir + "  " + os.path.join(temp_dir, 'bam.csv'))
-        pipe = Popen([self.pathToExe, temp_dir, os.path.join(temp_dir, "bam.csv")], stdout=PIPE, stderr=PIPE)
-        outText = pipe.communicate()[0]
-        self.log(Level.INFO, "Output from run is ==> " + outText) 
-                    
+                       systemHiveFile = file
+                       bamRecord = self.processSYSTEMHive(filePath)
+                    elif file.getName() == 'SAM':
+                        # Get information from the SAM file returns dictionary with key of rid and value of user name
+                        userRids = self.processSAMHive(filePath)
+        
         # Setup Artifact
         try:
             self.log(Level.INFO, "Begin Create New Artifacts")
@@ -187,25 +179,30 @@ class BamKeyIngestModule(DataSourceIngestModule):
             self.log(Level.INFO, "Artifacts Creation Error, some artifacts may not exist now. ==> ")
             
         artifactName = "TSK_BAM_KEY"
-        artIdCsv = skCase.getArtifactTypeID(artifactName)
+        artId = skCase.getArtifactTypeID(artifactName)
 
-        # Read CSV File and Import into Autopsy
-        headingRead = False
-        attributeNames = []
-        with open(os.path.join(temp_dir, 'bam.csv'), 'rU') as csvfile:
-            csvreader = csv.reader(csvfile, delimiter=',', quotechar='|')
-            for row in csvreader:
-                if not headingRead:
-                    for colName in row:
-                        attributeNames.append(colName.upper().strip())
-                    headingRead = True
-                else:
-                    art = systemAbsFile.newArtifact(artIdCsv)
-                    for (data, head) in zip(row, attributeNames):
-                        try:
-                            art.addAttribute(BlackboardAttribute(skCase.getAttributeType(head), BamKeyIngestModuleFactory.moduleName, data))
-                        except:
-                            art.addAttribute(BlackboardAttribute(skCase.getAttributeType(head), BamKeyIngestModuleFactory.moduleName, int(data)))
+        moduleName = BamKeyIngestModuleFactory.moduleName
+        
+        # Attributes to use TSK_USER_NAME, TSK_PROG_NAME, TSK_DATETIME
+        for bamRec in bamRecord:
+            attributes = ArrayList()
+            art = systemHiveFile.newArtifact(artId)
+            
+            self.log(Level.INFO, "BamRec ==> " + str(bamRec))
+            
+            if bamRec[0] in userRids.keys():
+                attributes.add(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_USER_NAME.getTypeID(), moduleName, userRids[bamRec[0]]))
+            else:
+                attributes.add(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_USER_NAME.getTypeID(), moduleName, bamRec[0]))
+            attributes.add(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PROG_NAME.getTypeID(), moduleName, bamRec[1]))
+            attributes.add(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(), moduleName, int(bamRec[2])))
+            art.addAttributes(attributes)
+
+            # index the artifact for keyword search
+            try:
+                blackboard.indexArtifact(artChat)
+            except:
+                self._logger.log(Level.WARNING, "Error indexing artifact " + art.getDisplayName())
         
 		#Clean up prefetch directory and files
         try:
@@ -213,7 +210,6 @@ class BamKeyIngestModule(DataSourceIngestModule):
         except:
 		     self.log(Level.INFO, "removal of directory tree failed " + temp_dir)
  
-        
         # After all databases, post a message to the ingest messages in box.
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
             "BamKey", " BamKey Files Have Been Analyzed " )
@@ -221,5 +217,99 @@ class BamKeyIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 
+    def processSYSTEMHive(self, systemHive):
+    
+        bamRecord = []
+        systemRegFile = RegistryHiveFile(File(systemHive))
+        currentKey = self.findRegistryKey(systemRegFile, self.registryBamKey)
+        bamKey = currentKey.getSubkeyList()
+        for sk in bamKey:
+            if len(sk.getValueList()) > 0:
+                registryKey = sk.getName()
+                skValues = sk.getValueList()
+                for skValue in skValues:
+                    if skValue.getName() == 'SequenceNumber' or skValue.getName() == 'Version':
+                        pass
+                    else:
+                        indRecord = []
+                        value = skValue.getValue()
+                        binData = self.getRawData(value.getAsRawData())
+                        msTime = struct.unpack('<qqq', binData)[0]
+                        linuxTime = int(str(msTime)[0:11]) - 11644473600
+                        uId = registryKey[registryKey.rfind("-")+1:]
+                        indRecord.append(uId)
+                        indRecord.append(str(skValue.getName()))
+                        indRecord.append(str(linuxTime))                  
+                        bamRecord.append(indRecord)
+        return bamRecord
+
+
+    def processSAMHive(self, samHive):
+    
+        userId = {}
+        samRegFile = RegistryHiveFile(File(samHive))
+        currentKey = self.findRegistryKey(samRegFile, self.registrySAMKey)
+        samKey = currentKey.getSubkeyList()   
+        for sk in samKey:
+            registryKey = sk.getName()
+            skValues = sk.getValueList()
+            if len(skValues) > 0:
+                for skVal in skValues:
+                    if skVal.getName() == 'V':
+                        value = skVal.getValue()
+                        hexArray = self.getRawData(value.getAsRawData())
+                        pos1 = int(str(struct.unpack_from('<l', hexArray[4:])[0]))
+                        pos3 = int(str(struct.unpack_from('<l', hexArray[12:])[0])) + 204 
+                        pos4 = int(str(struct.unpack_from('<l', hexArray[16:])[0]))
+                        pos6 = int(str(struct.unpack_from('<l', hexArray[24:])[0])) + 204
+                        pos7 = int(str(struct.unpack_from('<l', hexArray[28:])[0]))
+                        pos9 = int(str(struct.unpack_from('<l', hexArray[36:])[0])) + 204
+                        pos10 = int(str(struct.unpack_from('<l', hexArray[40:])[0]))
+                        fmtStringName = "<" + str(pos4) + "s"		  
+                        fmtStringFullname = ">" + str(pos7) + "s"
+                        fmtStringComment = ">" + str(pos10) + "s"
+                        userName = struct.unpack_from(fmtStringName, hexArray[pos3:])[0]
+                        fullName = struct.unpack_from(fmtStringFullname, hexArray[pos6:])[0]
+                        comment = struct.unpack_from(fmtStringComment, hexArray[pos9:])[0]
+                        userName = self.utf16decode(userName)
+                        userId[str(int(registryKey, 16))] = userName
+
+        return userId
+
+    def getRawData(self, rawData):
+    
+        hexArray = ""
+        arrayLength = rawData.remaining()
+        for x in range(0, arrayLength):
+            binByte = rawData.get()
+            # Have to check if this is a negative number or not.  Byte will be returned -127 to 127 instead of 0 to 255
+            if binByte < 0:
+                binByte = 256 + binByte
+            hexArray = hexArray + chr(binByte)
+        return hexArray
+    
+    def findRegistryKey(self, registryHiveFile, registryKey):
+    
+        rootKey = registryHiveFile.getRoot()
+        regKeyList = registryKey.split('/')
+        currentKey = rootKey
+        for key in regKeyList:
+            self.log(Level.INFO, "Key value is ==> " + key)
+            self.log(Level.INFO, "Current Key is ==> " + str(currentKey))
+            currentKey = currentKey.getSubkey(key) 
+        return currentKey   
+
+    def utf16decode(self, bytes):
+
+        ## Take the UTF-16LE encoded strings as bytes and convert to a UTF-8 string. Jython-compatible.
+        ## code taken from Sam Koffman that he created for his plugin Autopsy-MSOT
+        ## https://github.com/MadScientistAssociation/Autopsy-MSOT/blob/5f31ce521f4df3839fc825d00e82d9a6e97dfcff/lib/misc_functions_aut.py
+
+        bytes = binascii.hexlify(bytes)
+        bytes = [bytes[i:i+2] for i in range(0, len(bytes), 2)]
+        bytes = (''.join(filter(lambda a: a !='00', bytes)))
+        bytes = codecs.decode(bytes, 'hex')
+        return(bytes)
+        
 
 
