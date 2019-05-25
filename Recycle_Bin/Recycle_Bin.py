@@ -39,6 +39,7 @@ import shutil
 import struct
 import binascii
 import codecs
+import inspect
 
 from com.williballenthin.rejistry import RegistryHiveFile
 from com.williballenthin.rejistry import RegistryKey
