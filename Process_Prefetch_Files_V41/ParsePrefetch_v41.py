@@ -210,6 +210,9 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
         attID_ex7 = skCase.getAttributeType("TSK_PF_EXEC_DTTM_7")
         attID_ex8 = skCase.getAttributeType("TSK_PF_EXEC_DTTM_8")
 
+        # Used to crossref ADS prefetch files
+        prefetchFileName = {}
+        
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
         
@@ -237,11 +240,17 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
             if self.context.isJobCancelled():
                 return IngestModule.ProcessResult.OK
 
-            #self.log(Level.INFO, "Processing file: " + file.getName())
+            self.log(Level.INFO, "Processing file: " + file.getName())
             fileCount += 1
 
             # Save the DB locally in the temp folder. use file id as name to reduce collisions
-            lclDbPath = os.path.join(Temp_Dir, file.getName())
+            fileName = file.getName()
+            if (":" in fileName):
+                fileName = fileName.replace(":", "-")
+                prefetchFileName[fileName] = file
+            else:
+                prefetchFileName[fileName] = file
+            lclDbPath = os.path.join(Temp_Dir, fileName)
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
 
@@ -296,37 +305,37 @@ class ParsePrefetchDbIngestModule(DataSourceIngestModule):
             except SQLException as e:
                 self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
 
-            fileManager = Case.getCurrentCase().getServices().getFileManager()
-            files = fileManager.findFiles(dataSource, Prefetch_File_Name)                
-            
-            for file in files:
-                # Make artifact for TSK_PREFETCH,  this can happen when custom attributes are fully supported
-                #art = file.newArtifact(artID_pf)
-                art = file.newArtifact(artID_pf)
+            file = prefetchFileName[Prefetch_File_Name]
+            # Make artifact for TSK_PREFETCH,  this can happen when custom attributes are fully supported
+            #art = file.newArtifact(artID_pf)
+            art = file.newArtifact(artID_pf)
 
-                #self.log(Level.INFO, "Attribute Number ==>" + str(attID_pf_fn) + " " + str(attID_pf_an) )
-                # Add the attributes to the artifact.
-                art.addAttributes(((BlackboardAttribute(attID_pf_fn, ParsePrefetchDbIngestModuleFactory.moduleName, Prefetch_File_Name)), \
-                                  (BlackboardAttribute(attID_pf_an, ParsePrefetchDbIngestModuleFactory.moduleName, Actual_File_Name)), \
-                                  (BlackboardAttribute(attID_nr, ParsePrefetchDbIngestModuleFactory.moduleName, Number_Of_Runs)), \
-                                  (BlackboardAttribute(attID_ex1, ParsePrefetchDbIngestModuleFactory.moduleName, Time_1)), \
-                                  (BlackboardAttribute(attID_ex2, ParsePrefetchDbIngestModuleFactory.moduleName, Time_2)), \
-                                  (BlackboardAttribute(attID_ex3, ParsePrefetchDbIngestModuleFactory.moduleName, Time_3)), \
-                                  (BlackboardAttribute(attID_ex4, ParsePrefetchDbIngestModuleFactory.moduleName, Time_4)), \
-                                  (BlackboardAttribute(attID_ex5, ParsePrefetchDbIngestModuleFactory.moduleName, Time_5)), \
-                                  (BlackboardAttribute(attID_ex6, ParsePrefetchDbIngestModuleFactory.moduleName, Time_6)), \
-                                  (BlackboardAttribute(attID_ex7, ParsePrefetchDbIngestModuleFactory.moduleName, Time_7)), \
-                                  (BlackboardAttribute(attID_ex8, ParsePrefetchDbIngestModuleFactory.moduleName, Time_8))))
+            #self.log(Level.INFO, "Attribute Number ==>" + str(attID_pf_fn) + " " + str(attID_pf_an) )
+            # Add the attributes to the artifact.
+            art.addAttributes(((BlackboardAttribute(attID_pf_fn, ParsePrefetchDbIngestModuleFactory.moduleName, file.getName())), \
+                              (BlackboardAttribute(attID_pf_an, ParsePrefetchDbIngestModuleFactory.moduleName, Actual_File_Name)), \
+                              (BlackboardAttribute(attID_nr, ParsePrefetchDbIngestModuleFactory.moduleName, Number_Of_Runs)), \
+                              (BlackboardAttribute(attID_ex1, ParsePrefetchDbIngestModuleFactory.moduleName, Time_1)), \
+                              (BlackboardAttribute(attID_ex2, ParsePrefetchDbIngestModuleFactory.moduleName, Time_2)), \
+                              (BlackboardAttribute(attID_ex3, ParsePrefetchDbIngestModuleFactory.moduleName, Time_3)), \
+                              (BlackboardAttribute(attID_ex4, ParsePrefetchDbIngestModuleFactory.moduleName, Time_4)), \
+                              (BlackboardAttribute(attID_ex5, ParsePrefetchDbIngestModuleFactory.moduleName, Time_5)), \
+                              (BlackboardAttribute(attID_ex6, ParsePrefetchDbIngestModuleFactory.moduleName, Time_6)), \
+                              (BlackboardAttribute(attID_ex7, ParsePrefetchDbIngestModuleFactory.moduleName, Time_7)), \
+                              (BlackboardAttribute(attID_ex8, ParsePrefetchDbIngestModuleFactory.moduleName, Time_8))))
 			
         # Fire an event to notify the UI and others that there are new artifacts  
         IngestServices.getInstance().fireModuleDataEvent(
             ModuleDataEvent(ParsePrefetchDbIngestModuleFactory.moduleName, artID_pf_evt, None))
                 
         # Clean up
-        stmt.close()
-        dbConn.close()
-        os.remove(lclDbPath)
-
+        try:
+            stmt.close()
+            dbConn.close()
+            os.remove(lclDbPath)
+        except:
+            self.log(Level.INFO, "could not remove the prefetch database " + lclDbPath)
+            
 		#Clean up prefetch directory and files
         for file in files:
             try:

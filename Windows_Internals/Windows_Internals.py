@@ -1192,6 +1192,10 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
         attID_ex7 = skCase.getAttributeType("TSK_PF_EXEC_DTTM_7")
         attID_ex8 = skCase.getAttributeType("TSK_PF_EXEC_DTTM_8")
 
+        # Used to crossref ADS prefetch files
+        prefetchFileName = {}
+
+        
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
         
@@ -1223,18 +1227,24 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
             fileCount += 1
 
             # Save the DB locally in the temp folder. use file id as name to reduce collisions
+            fileName = file.getName()
+            if (":" in fileName):
+                fileName = fileName.replace(":", "-")
+                prefetchFileName[fileName] = file
+            else:
+                prefetchFileName[fileName] = file
             lclDbPath = os.path.join(Temp_Dir, file.getName())
             ContentUtils.writeToFile(file, File(lclDbPath))
                         
         # Run the EXE, saving output to a sqlite database
         self.log(Level.INFO, "Running program on data source parm 1 ==> " + Temp_Dir + "  Parm 2 ==> " + Case.getCurrentCase().getTempDirectory())
-        pipe = Popen([self.path_to_Prefetch_file, Temp_Dir, Case.getCurrentCase().getTempDirectory()], stdout=PIPE, stderr=PIPE)
+        pipe = Popen([self.path_to_Prefetch_file, Temp_Dir, os.path.join(Temp_Dir, "Autopsy_PF_DB.db3")], stdout=PIPE, stderr=PIPE)
         
         out_text = pipe.communicate()[0]
         self.log(Level.INFO, "Output from run is ==> " + out_text)                
 			
         # Set the database to be read to the once created by the prefetch parser program
-        lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), "Autopsy_PF_DB.db3")
+        lclDbPath = os.path.join(Temp_Dir, "Autopsy_PF_DB.db3")
         self.log(Level.INFO, "Path the prefetch database file created ==> " + lclDbPath)
                         
         # Open the DB using JDBC
@@ -1280,37 +1290,37 @@ class Windows_InternalsIngestModule(DataSourceIngestModule):
             except SQLException as e:
                 self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
 
-            fileManager = Case.getCurrentCase().getServices().getFileManager()
-            files = fileManager.findFiles(dataSource, Prefetch_File_Name)                
-            
-            for file in files:
-                # Make artifact for TSK_PREFETCH,  this can happen when custom attributes are fully supported
-                art = file.newArtifact(artID_pf)
+            file = prefetchFileName[Prefetch_File_Name]
+            # Make artifact for TSK_PREFETCH,  this can happen when custom attributes are fully supported
+            art = file.newArtifact(artID_pf)
 
-                # Add the attributes to the artifact.
-                art.addAttributes(((BlackboardAttribute(attID_pf_fn, Windows_InternalsIngestModuleFactory.moduleName, Prefetch_File_Name)), \
-                                  (BlackboardAttribute(attID_pf_an, Windows_InternalsIngestModuleFactory.moduleName, Actual_File_Name)), \
-                                  (BlackboardAttribute(attID_nr, Windows_InternalsIngestModuleFactory.moduleName, Number_Of_Runs)), \
-                                  (BlackboardAttribute(attID_ex1, Windows_InternalsIngestModuleFactory.moduleName, Time_1)), \
-                                  (BlackboardAttribute(attID_ex2, Windows_InternalsIngestModuleFactory.moduleName, Time_2)), \
-                                  (BlackboardAttribute(attID_ex3, Windows_InternalsIngestModuleFactory.moduleName, Time_3)), \
-                                  (BlackboardAttribute(attID_ex4, Windows_InternalsIngestModuleFactory.moduleName, Time_4)), \
-                                  (BlackboardAttribute(attID_ex5, Windows_InternalsIngestModuleFactory.moduleName, Time_5)), \
-                                  (BlackboardAttribute(attID_ex6, Windows_InternalsIngestModuleFactory.moduleName, Time_6)), \
-                                  (BlackboardAttribute(attID_ex7, Windows_InternalsIngestModuleFactory.moduleName, Time_7)), \
-                                  (BlackboardAttribute(attID_ex8, Windows_InternalsIngestModuleFactory.moduleName, Time_8))))
-                
-                try:
-                    #index the artifact for keyword search
-                    blackboard.indexArtifact(art)
-                except:
-                    self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
+            # Add the attributes to the artifact.
+            art.addAttributes(((BlackboardAttribute(attID_pf_fn, Windows_InternalsIngestModuleFactory.moduleName, file.getName())), \
+                              (BlackboardAttribute(attID_pf_an, Windows_InternalsIngestModuleFactory.moduleName, Actual_File_Name)), \
+                              (BlackboardAttribute(attID_nr, Windows_InternalsIngestModuleFactory.moduleName, Number_Of_Runs)), \
+                              (BlackboardAttribute(attID_ex1, Windows_InternalsIngestModuleFactory.moduleName, Time_1)), \
+                              (BlackboardAttribute(attID_ex2, Windows_InternalsIngestModuleFactory.moduleName, Time_2)), \
+                              (BlackboardAttribute(attID_ex3, Windows_InternalsIngestModuleFactory.moduleName, Time_3)), \
+                              (BlackboardAttribute(attID_ex4, Windows_InternalsIngestModuleFactory.moduleName, Time_4)), \
+                              (BlackboardAttribute(attID_ex5, Windows_InternalsIngestModuleFactory.moduleName, Time_5)), \
+                              (BlackboardAttribute(attID_ex6, Windows_InternalsIngestModuleFactory.moduleName, Time_6)), \
+                              (BlackboardAttribute(attID_ex7, Windows_InternalsIngestModuleFactory.moduleName, Time_7)), \
+                              (BlackboardAttribute(attID_ex8, Windows_InternalsIngestModuleFactory.moduleName, Time_8))))
+            
+            try:
+                #index the artifact for keyword search
+                blackboard.indexArtifact(art)
+            except:
+                self.log(Level.SEVERE, "Error indexing artifact " + art.getDisplayName())
 			
-            IngestServices.getInstance().fireModuleDataEvent(ModuleDataEvent(Windows_InternalsIngestModuleFactory.moduleName, artID_pf_evt, None))
+        IngestServices.getInstance().fireModuleDataEvent(ModuleDataEvent(Windows_InternalsIngestModuleFactory.moduleName, artID_pf_evt, None))
         # Clean up
-        stmt.close()
-        dbConn.close()
-        os.remove(lclDbPath)
+        try:
+            stmt.close()
+            dbConn.close()
+            os.remove(lclDbPath)
+        except:
+            self.log(Level.INFO, "could not remove the prefetch database " + lclDbPath)
 			
 		#Clean up prefetch directory and files
         try:
