@@ -32,6 +32,7 @@
 # Comments 
 #   Version 1.0 - Initial version - May 2019
 #   Version 1.1 - Remove external program dependecy and use rejistry 
+#   Version 1.2 - Fix user not found in SAM
 # 
 
 import os
@@ -87,7 +88,7 @@ class RecBin2IngestModuleFactory(IngestModuleFactoryAdapter):
         return "Parse Recycle Bin Information for Vista and beyond"
     
     def getModuleVersionNumber(self):
-        return "1.1"
+        return "1.2"
     
     def hasIngestJobSettingsPanel(self):
         return False
@@ -206,7 +207,7 @@ class RecBin2IngestModule(DataSourceIngestModule):
                         self.log(Level.INFO, "Parent Path ==> " + iFile.getParentPath())
                         startSearch = iFile.getParentPath().rfind("-")
                         userRid = iFile.getParentPath()[startSearch + 1:].replace('/','')
-                        art.addAttribute(BlackboardAttribute(attIdUserName, RecBin2IngestModuleFactory.moduleName, userRids[userRid]))
+                        art.addAttribute(BlackboardAttribute(attIdUserName, RecBin2IngestModuleFactory.moduleName, userRids.get(userRid, "Not Found!")))
                         art.addAttribute(BlackboardAttribute(attIdFilePath, RecBin2IngestModuleFactory.moduleName, fileNamePath))
                         art.addAttribute(BlackboardAttribute(attIdDelTime, RecBin2IngestModuleFactory.moduleName, deletedTimeStamp))
         
