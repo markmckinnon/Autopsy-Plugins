@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Autopsy_Python_Plugins"
-!define PRODUCT_VERSION "1.2"
+!define PRODUCT_VERSION "1.3"
 ;!define PRODUCT_PUBLISHER "Redwolf Computer Forensics"
 ;!define PRODUCT_WEB_SITE "http://RedWolfComputerForensics.com"
 ;!define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\MFT_Parser_Gui.exe"
@@ -502,16 +502,104 @@ Section "Timesketch" SEC39
 
 SectionEnd
 
+Section "Atomic Wallet" SEC40
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Atomic_Wallet"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Atomic_Wallet"
+  SetOverwrite try
+  File "..\Atomic_Wallet\Atomic_Wallet.py"
+  File "..\Atomic_Wallet\Atomic_Wallet_py_GPL_License.txt"
+
+SectionEnd
+
+Section "Bam Key" SEC41
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\Bam_Key"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Bam_Key"
+  SetOverwrite try
+  File "..\Bam_Key\Bam_Key.py"
+  File "..\Bam_Key\Bam_Key_License.txt"
+
+SectionEnd
+
+Section "ClamAv Hashsets" SEC42
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\ClamAv_Hashsets"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\ClamAv_Hashsets"
+  SetOverwrite try
+  File "..\ClamAv_Hashsets\ClamAv_Hashsets.py"
+  File "..\ClamAv_Hashsets\ClamAv_Hashsets_License.txt"
+  File "..\ClamAv_Hashsets\COPYING-sigtool-ClamAV"
+  File "..\ClamAv_Hashsets\libclamav.dll"
+  File "..\ClamAv_Hashsets\libcrypto-1_1.dll"
+  File "..\ClamAv_Hashsets\libssl-1_1.dll"
+  File "..\ClamAv_Hashsets\mspack.dll"
+  File "..\ClamAv_Hashsets\pthreads.dll"
+  File "..\ClamAv_Hashsets\sigtool.exe"
+
+SectionEnd
+
+Section "DJI Phantom Drone Parser" SEC43
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\DJI_Phantom_Drone_Parser"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\DJI_Phantom_Drone_Parser"
+  SetOverwrite try
+  File "..\DJI_Phantom_Drone_Parser\DJI_Phantom_Drone_Parser.py"
+  File "..\DJI_Phantom_Drone_Parser\DJI_Phantom_Drone_Parser_py_GPL_License.txt"
+  File "..\DJI_Phantom_Drone_Parser\Drop.exe"
+  File "..\DJI_Phantom_Drone_Parser\Drop_exe_GPL_License.txt"
+
+SectionEnd
+
+Section "EML Parser" SEC44
+  CreateDirectory "$APPDATA\Autopsy\Python_modules\EML_Parser"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\EML_Parser"
+  SetOverwrite try
+  File "..\EML_Parser\EML_Parser.py"
+  File "..\EML_Parser\EML_Parser_py_GPL_License.txt"
+
+SectionEnd
+
+Section "iTunes Backup" SEC45
+  CreateDirectory "$APPDATA\Autopsy\Python_modules1\iTunes_Backup"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\iTunes_Backup"
+  SetOverwrite try
+  File "..\iTunes_Backup\iTunes_Backup.py"
+  File "..\iTunes_Backup\iTunes_Backup_License.txt"
+
+SectionEnd
+
+Section "Mac Mail" SEC46
+  CreateDirectory "$APPDATA\Autopsy\Python_modules1\Mac_Mail"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Mac_Mail"
+  SetOverwrite try
+  File "..\Mac_Mail\Mac_Mail.py"
+  File "..\Mac_Mail\Mac_Mail_py_GPL_License.txt"
+
+SectionEnd
+
+Section "Recycle Bin" SEC47
+  CreateDirectory "$APPDATA\Autopsy\Python_modules1\Recycle_Bin"
+  SetOutPath "$APPDATA\Autopsy\Python_modules\Recycle_Bin"
+  SetOverwrite try
+  File "..\Recycle_Bin\Recycle_Bin.py"
+  File "..\Recycle_Bin\Recycle_Bin_License.txt"
+
+SectionEnd
+
 ; Section descriptions
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Amazon Echosystem Parser"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC40} "Atomic Wallet"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC41} "Bam Key"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC02} "CCM RecentlyUsedApps"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC42} "ClamAV Hashsets"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC34} "Create Datasource Hashset"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC28} "Create Preview Data Container"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC03} "Cuckoo"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC43} "DJI Phantom Drone Parser"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC44} "EML Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC04} "File History"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC29} "Hash Images"  
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC45} "iTunes Backup"  
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC05} "Jump_List_AD"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC46} "Mac Mail"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC06} "MacFSEvents"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC07} "MacOSX Recent"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC08} "MacOSX Safari"
@@ -534,6 +622,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC21} "Process SRUDB"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC37} "Process_TeraCopy"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC32} "Process Windows Mail"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC47} "Recycle Bin"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC38} "Remove Artifacts"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC22} "Shimcache Parser"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC33} "Spotlight Parser"  
