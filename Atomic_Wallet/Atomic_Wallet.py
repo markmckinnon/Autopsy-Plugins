@@ -25,11 +25,12 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 
-# Atomic_Wallet module to process Facebook Chats.
+# Atomic_Wallet module to process Information from the atomic application.
 # April 2019
 # 
 # Comments 
 #   Version 1.0 - Initial version - April 2019
+#   Version 1.1 - Fix Comments - Oct 2019
 # 
 
 import jarray
@@ -198,7 +199,7 @@ class AttomicWalletIngestModule(DataSourceIngestModule):
                 
         # After all databases, post a message to the ingest messages in box.
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
-            "Facebook Chat", " Facebook Chat Has Been Analyzed " )
+            "Atomic Wallet", " Atomic Wallet Has Been Analyzed " )
         IngestServices.getInstance().postMessage(message)
 
         return IngestModule.ProcessResult.OK                
