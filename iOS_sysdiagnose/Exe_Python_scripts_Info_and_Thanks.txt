@@ -1,0 +1,5 @@
+All the exe files were python scripts that were compiled into exe's using pyinstaller.  The python scripts can be found at https://github.com/cheeky4n6monkey/iOS_sysdiagnose_forensic_scripts.  More information can be found at the github site above.  
+
+Thanks to the following people for these scripts/research and devotion to the forensics community:
+
+Mattia Epifani (Github: mattiaepi , Twitter: @mattiaep) , Heather Mahalik (Github: hmahalik , Twitter: @HeatherMahalik) and @Cheeky4n6monkey, Peter Maaswinkel, Pranav Anand and David Durvaux.
