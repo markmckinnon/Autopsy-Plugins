@@ -31,7 +31,7 @@
 # 
 # Comments 
 #   Version 1.0 - Initial version - June 2020
-# 
+#           1.1 - Fixed mispelling in description and use getName instead of getNumber since caseNumber can be blank.
 
 import jarray
 import inspect
@@ -94,7 +94,7 @@ class WordlistIngestModuleFactory(IngestModuleFactoryAdapter):
         return self.moduleName
     
     def getModuleDescription(self):
-        return "Create WIrdlist From Solr"
+        return "Create Wordlist From Solr"
     
     def getModuleVersionNumber(self):
         return "1.0"
@@ -136,7 +136,7 @@ class WordlistIngestModule(DataSourceIngestModule):
         # we don't know how much work there is yet
         progressBar.switchToIndeterminate()
 
-        coreName = self.findCoreName(Case.getCurrentCase().getNumber())
+        coreName = self.findCoreName(Case.getCurrentCase().getName())
         
         self.log(Level.INFO, "Core name is ==> " + str(coreName))
         
@@ -146,8 +146,8 @@ class WordlistIngestModule(DataSourceIngestModule):
             #fileManager = Case.getCurrentCase().getServices().getFileManager()
 
             # Get the exported file name will have case number in the name and be in the export directory
-            exportFile = os.path.join(Case.getCurrentCase().getExportDirectory(), Case.getCurrentCase().getNumber() + "_wordlist.txt")
-            exportErrorFile = os.path.join(Case.getCurrentCase().getExportDirectory(), Case.getCurrentCase().getNumber() + "_wordlist_Errors.txt")
+            exportFile = os.path.join(Case.getCurrentCase().getExportDirectory(), Case.getCurrentCase().getName() + "_wordlist.txt")
+            exportErrorFile = os.path.join(Case.getCurrentCase().getExportDirectory(), Case.getCurrentCase().getName() + "_wordlist_Errors.txt")
             
             url        = 'http://' + self.host + ':' + self.port + '/solr/' + coreName + '/' + self.qt + '?'
             start      = "start=" + str(0)
@@ -223,12 +223,12 @@ class WordlistIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
         
-    def findCoreName(self, caseNumber):
+    def findCoreName(self, caseName):
     
         connection = urllib.urlopen("http://localhost:23232/solr/admin/cores?action=status")
         root = ET.fromstring(connection.read())
         for child in root.iter('*'):
-            if caseNumber in str(child.attrib.values()):
+            if caseName in str(child.attrib.values()):
                 return str(child.attrib.values()[0])
         return None
 
