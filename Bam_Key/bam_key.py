@@ -120,6 +120,7 @@ class BamKeyIngestModule(DataSourceIngestModule):
         # Hive Keys to parse, use / as it is easier to parse out then \\
         self.registrySAMKey = 'SAM/Domains/Account/Users'
         self.registryBamKey = 'controlset001/services/bam/UserSettings'
+        self.registryBamKeyNew = 'controlset001/services/bam/State/UserSettings'
 
     # Where the analysis is done.
     def process(self, dataSource, progressBar):
@@ -221,7 +222,11 @@ class BamKeyIngestModule(DataSourceIngestModule):
     
         bamRecord = []
         systemRegFile = RegistryHiveFile(File(systemHive))
-        currentKey = self.findRegistryKey(systemRegFile, self.registryBamKey)
+        try:
+            currentKey = self.findRegistryKey(systemRegFile, self.registryBamKey)
+        except:
+            self.log(Level.INFO, "Unable to find old Bam key, trying new location")
+            currentKey = self.findRegistryKey(systemRegFile, self.registryBamKeyNew)
         bamKey = currentKey.getSubkeyList()
         for sk in bamKey:
             if len(sk.getValueList()) > 0:
