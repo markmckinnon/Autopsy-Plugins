@@ -1,18 +1,74 @@
 # Autopsy-Plugins
 
-This is a repository of Autopsy Python Plugins.  You can download all of them and place them in the python plugin directory.  All the plugins will recompile on execution.  
+This is a repository of Autopsy Python Plugins.  You can download all of them and place them in the python plugin directory.  All the plugins will recompile on execution.
+
+- [Autopsy-Plugins](#autopsy-plugins)
+  - [Plugin Overview](#plugin-overview)
+    - [AD1_Extractor](#ad1_extractor)
+    - [Amazon Echosystem Parser](#amazon-echosystem-parser)
+    - [Atomic Wallet](#atomic-wallet)
+    - [CCM Recently Used Apps](#ccm-recently-used-apps)
+    - [ClamAV Hashsets](#clamav-hashsets)
+    - [Create Data Source Hashset](#create-data-source-hashset)
+    - [Create Preview Data Container](#create-preview-data-container)
+    - [Cuckoo](#cuckoo)
+    - [DJI Phantom Drone Parser](#dji-phantom-drone-parser)
+    - [Parse File History](#parse-file-history)
+    - [Gui Test](#gui-test)
+    - [Gui Test With Settings](#gui-test-with-settings)
+    - [LevelDB Parser](#leveldb-parser)
+    - [MacFSEvents](#macfsevents)
+    - [MacOSX Recent](#macosx-recent)
+    - [MacOSX Safari](#macosx-safari)
+    - [Mac Mail Parser](#mac-mail-parser)
+    - [Mass Export By Extension](#mass-export-by-extension)
+    - [Obsolete](#obsolete)
+    - [Parse PList](#parse-plist)
+    - [Parse QNX Image](#parse-qnx-image)
+    - [Parse SQLite DBs](#parse-sqlite-dbs)
+    - [Parse SQLite DB Del Records](#parse-sqlite-db-del-records)
+    - [Parse Usnj](#parse-usnj)
+    - [Plaso (2 Plugins in this directory)](#plaso-2-plugins-in-this-directory)
+    - [Process Activities Cache](#process-activities-cache)
+    - [Parse Amache](#parse-amache)
+    - [Process Appx Programs](#process-appx-programs)
+    - [Process Appxreg Programs](#process-appxreg-programs)
+    - [Parse EVTX](#parse-evtx)
+    - [Parse EVTX by Event ID](#parse-evtx-by-event-id)
+    - [Process Extract VSS](#process-extract-vss)
+    - [Process Facebook Chats](#process-facebook-chats)
+    - [Process Teracopy](#process-teracopy)
+    - [Process Windows Mail](#process-windows-mail)
+    - [Remove Artifacts](#remove-artifacts)
+    - [Parse RingCentral](#parse-ringcentral)
+    - [Shimache Parser](#shimache-parser)
+    - [Spotlight Parser](#spotlight-parser)
+    - [Thumbcache Parser](#thumbcache-parser)
+    - [Thumbs Parser](#thumbs-parser)
+    - [Timesketch](#timesketch)
+    - [UAL Parser](#ual-parser)
+    - [Volatility (3 plugins in this directory)](#volatility-3-plugins-in-this-directory)
+    - [Webcache](#webcache)
+    - [Windows Internals](#windows-internals)
+  - [Linux Compatible Plugins](#linux-compatible-plugins)
+  - [Need Help?](#need-help)
 
 ## Plugin Overview
 Here is a brief overview of all of the plugins.
 
-### [Amazon Echosystem Parser]((./Amazon_Echosystem_Parser/README.md)
+### AD1_Extractor
+To-Do
+
+### [Amazon Echosystem Parser](./Amazon_Echosystem_Parser/README.md)
 Parse the databases from an Amazon Alexa image.
 
-### BAM Key
-Parse the BAM key from the registry.
+### Atomic Wallet
+To-Do
 
 ### CCM Recently Used Apps
-Parse the WMI(<insert acronym here>) database for Recently used apps.
+Parse the [WMI](https://docs.microsoft.com/en-us/windows/win32/wmisdk/wmi-start-page) database for Recently used apps.
+### ClamAV Hashsets
+To-Do
 
 ### Create Data Source Hashset
 Will create a file with the hashset of a data source that can then be pulled back into Autopsy as a hash set.
@@ -23,6 +79,9 @@ Create VHD expandable volumen and mount it.  Then read SQLite database of file e
 ### Cuckoo
 Check the status of a [Cuckoo](https://cuckoosandbox.org/) server and submit files to it.
 
+### DJI Phantom Drone Parser
+To-Do
+
 ### Parse File History
 Export the Catalog1.edb file and then call the command line version of the Expor_FileHistory.  A sqlite database that contains the File History information is created and then imported into the extracted view section of Autopsy.
 
@@ -32,29 +91,27 @@ Example of the different types of things you can do with the GUI portion of Auto
 ### [Gui Test With Settings](./Gui_Test_With_Settings/README.md)
 Example of the saving and retrieving of settings from the GUI of an Autopsy Python Plugin.
 
-### Hash Images
-Hash raw, vmdk and vhdi images.  Like E01 hashing.
-
-### Jump List AD
-Export the JumpList AutoDestinations and then call the command line version of the Export_JL_Ad program.  A SQLite database that contains the JumpList information is created and then imported into the extracted view section of Autopsy.
-
+### LevelDB Parser
+To-Do
 ### MacFSEvents
 Export the .fsevents directory and run the FSEParser_v2.1.exe program against the exported data.  It will then import the SQLite database that was created from the program.
-
 ### MacOSX Recent
 Export/Parse Mac recents.
-
 ### MacOSX Safari
 Export/Parse Mac OSX safari.  A SQLite database that contains the Safari information is created and then imported into the extracted view section of Autopsy.
+### Mac Mail Parser
+To-Do
 
+### Mass Export By Extension
+To-Do
+
+### Obsolete 
+Here lies the plugins no longer maintained as they are now integrated into Autopsy main.
 ### Parse PList
 Parse any plist and convert it to a SQLite database and then import the information into the extracted contant.
 
-### SAM Parse
-Export SAM Registry Hive and then call the command line version of SAM Parse program.  A SQLite database that contains SAM information is created then imported into the extracted view section of Autopsy.
-
-### Parse Shellbags
-Export the NTUSER Hive(s) and then call the command line version of shell bags program.  A SQLite database that contains the shellbag information is created then imported into the extracted view section of Autopsy.
+### Parse QNX Image
+To-Do
 
 ### [Parse SQLite DBs](./Parse_SQLite_Databases/README.md)
 Parse any SQLite files and import them into the extracted content section of Autopsy.
@@ -80,7 +137,7 @@ Parse the SQLite database that has the Windows 10 Store/metro apps database.
 ### Process Appxreg Programs
 Parse the registry to read the Windows 10 Store/metro apps.
 
-### Parse EVTX
+### [Parse EVTX](./Process_EVTX/README.md)
 Export the Windows Event Logs and then call the command line version of the Export_EVTX program.  A SQLite database that contains the Event Log information is created and imported into the extracted view section of Autopsy.
 
 ### Parse EVTX by Event ID
@@ -92,23 +149,17 @@ Example of the different types of things you can do with Autopsy plugin?
 ### Process Facebook Chats
 Parses the chats from facebook on a windows OS.
 
-### Process Prefetch V41
-Export the prefetch files and thenc all the command line version of the prefetch_parser.  A SQLite database that contains the prefetch information is created and then imported into the extracted view section of Autopsy.
-
-### Process SRUDB
-Export the System Resource Usage Database and then call the command line version of the Export SRUDB program.  A SQLite database that contains the Resource Usage information is created then imported into the extracted view of Autopsy.
-
 ### Process Teracopy
 Process the Teracopy database
 
 ### Process Windows Mail
 Process Windows Mail store and added messages to communication manager.
 
-### Recycle Bin
-Process the Recycle Bin in Windows Vista and later
-
 ### Remove Artifacts
 Will remove custom artifacts and attributes from a case.  For developer use.
+
+### Parse RingCentral
+To-Do
 
 ### Shimache Parser
 Export the System Registry Hive and then call the command line version of the shimache_parser program.  A SQLite database that contains the shimache information is created then imported into the extracted view section of Autopsy.
@@ -124,6 +175,9 @@ Export all the thumbs.db files in the image and then run the [thumbs_viewer](htt
 
 ### Timesketch
 Export all date/time data to a Timesketch server
+
+### UAL Parser
+A parser based on [KStrike](https://github.com/brimorlabs/KStrike) to parse and process the [UAL](https://docs.microsoft.com/en-us/powershell/module/useraccesslogging/?view=windowsserver2022-ps) database and output the results to the main Autopsy window.
 
 ### Volatility (3 plugins in this directory)
 Execute Volatility against a memory image.  It will ask the user for the directory where the Volatility executable reside then it will run volatility against the memory image using options the user specifies.
@@ -168,10 +222,6 @@ The following plugins are compatible on Linux systems.  Other plugins may work, 
 * Volatility
 * Webcache
 * Windows Internals
-
-
-## Other Resources
-You can read about some of the plugins at https://medium.com/@markmckinnon_80619
 
 ## Need Help?
 If you have any questions/comments/suggestions please let me know.  [Create an issue](https://github.com/markmckinnon/Autopsy-Plugins/issues/new).  Enjoy!
