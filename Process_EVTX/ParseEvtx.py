@@ -56,6 +56,7 @@ from javax.swing import JPanel
 from javax.swing import JFrame
 from javax.swing import JScrollPane
 from javax.swing import JComponent
+from javax.swing import JLabel
 from java.awt.event import KeyListener
 
 
@@ -169,7 +170,8 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
                 self.List_Of_Events.append('System.Evtx')
             if self.local_settings.getSetting('Other') == 'true':
                 self.List_Of_Events.append('Other')
-                Event_List = self.local_settings.getSetting('EventLogs').split()
+                # [SD] Add the line below with the split function to split on a , only
+                Event_List = self.local_settings.getSetting('EventLogs').split(',')
                 for evt in Event_List:
                    self.List_Of_Events.append(str(evt))
              
@@ -541,11 +543,13 @@ class Process_EVTX1WithUISettingsPanel(IngestModuleIngestJobSettingsPanel):
         self.checkbox2 = JCheckBox("Security.EVTX", actionPerformed=self.checkBoxEvent)
         self.checkbox3 = JCheckBox("System.EVTX", actionPerformed=self.checkBoxEvent)
         self.checkbox4 = JCheckBox("Other - Input in text area below then check this box", actionPerformed=self.checkBoxEvent)
+        self.text1 = JLabel("*** Format is a comma delimited text")
         self.panel1.add(self.checkbox)
         self.panel1.add(self.checkbox1)
         self.panel1.add(self.checkbox2)
         self.panel1.add(self.checkbox3)
         self.panel1.add(self.checkbox4)
+        self.panel1.add(self.text1)
         self.add(self.panel1)
 		
         self.area = JTextArea(5,25)
