@@ -201,7 +201,7 @@ class ParseEvtxDbIngestModule(DataSourceIngestModule):
             try:
                 #self.log(Level.INFO, "Begin Create New Artifacts")
                 artID_evtx = blkBrd.getOrAddArtifactType( "TSK_EVTX_LOGS", "Windows Event Logs")
-                artID_evtx_Long = blkBrd.getOrAddArtifactType( "TSK_EVTX_LOGS_LONG", "Windows vent Logs Long Tail Analysis")
+                artID_evtx_Long = blkBrd.getOrAddArtifactType( "TSK_EVTX_LOGS_LONG", "Windows Event Logs Long Tail Analysis")
 
                 attID_ev_fn = blkBrd.getOrAddAttributeType("TSK_EVTX_FILE_NAME", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Event Log File Name")
                 attID_ev_rc = blkBrd.getOrAddAttributeType("TSK_EVTX_RECOVERED_RECORD", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Recovered Record")
