@@ -187,15 +187,15 @@ class ThumbcacheIngestModule(DataSourceIngestModule):
                 self.log(Level.INFO, " Dev File Name is ==> " + dev_file)
                 self.log(Level.INFO, " Local File Name is ==> " + local_file)
                 
-                if not(self.check_dervived_existance(dataSource, file, abstract_file_info)):
+                if not(self.check_derived_existance(dataSource, file, abstract_file_info)):
                 
-                    # Add dervived file
+                    # Add derived file
                     # Parameters Are:
                     #    File Name, Local Path, size, ctime, crtime, atime, mtime, isFile, Parent File, rederive Details, Tool Name, 
                     #     Tool Version, Other Details, Encoding Type
-                    dervived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
+                    derived_file = skCase.addDerivedFile(file, local_file, os.path.getsize(dev_file), + \
                                              0, 0, 0, 0, True, abstract_file_info, "", "thumbcache_viewer_cmd.exe", "1.0.3.4", "", TskData.EncodingType.NONE)
-                    #self.log(Level.INFO, "Derived File ==> " + str(dervived_file))
+                    #self.log(Level.INFO, "Derived File ==> " + str(derived_file))
                 else:
                     pass                
         
@@ -211,14 +211,23 @@ class ThumbcacheIngestModule(DataSourceIngestModule):
 
         return IngestModule.ProcessResult.OK                
 
-    def check_dervived_existance(self, dataSource, file_name, parent_file_abstract):
+    def check_derived_existance(self, dataSource, file_name, parent_file_abstract):
 
         fileManager = Case.getCurrentCase().getServices().getFileManager()
-        dervived_file = fileManager.findFiles(dataSource, file_name, parent_file_abstract)
-        numFiles = len(dervived_file)
+        derived_file = fileManager.findFiles(dataSource, file_name, parent_file_abstract)
+        numFiles = len(derived_file)
     
         if numFiles == 0:
-            return True
+	    #self.log(Level.INFO, "File Does Not Exists ==> " + str(file_name));
+	    return False
         else:
-            return False
+	    #self.log(Level.INFO, "File Exists with File Path ==> " + str(parent_file_abstract));
+            return True
+	    '''for file in derived_file:
+	        if parent_file_abstract.parentPath == file.parentPath
+		    self.log(Level.INFO, "File Exists ==> " + str(file_name));
+		    return True
+	    self.log(Level.INFO, "File Does Not Exists ==> " + str(file_name));
+	    return False'''
+     
 
