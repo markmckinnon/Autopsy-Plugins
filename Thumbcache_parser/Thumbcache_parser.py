@@ -172,22 +172,23 @@ class ThumbcacheIngestModule(DataSourceIngestModule):
             self.log(Level.INFO, "Running prog ==> " + self.path_to_exe_thumbs + " -O " + out_dir + " " + lclDbPath)
             pipe = Popen([self.path_to_exe_thumbs, "-O", out_dir, lclDbPath], stdout=PIPE, stderr=PIPE)
             out_text = pipe.communicate()[0]
-            self.log(Level.INFO, "Output from run is ==> " + out_text)               
+            #self.log(Level.INFO, "Output from run is ==> " + out_text)               
         
             # Get the parent abstract file Information
             abstract_file_info = skCase.getAbstractFileById(thumb_file.getId())
             #self.log(Level.INFO, "Abstract File Info ==> " + str(abstract_file_info))
         
-            files = next(os.walk(out_dir))[2]
+            files = os.listdir(out_dir)
+            #self.log(Level.INFO, "Derived files to add ==> " + str(files))
             for file in files:
-                self.log(Level.INFO, " File Name is ==> " + file)
+                #self.log(Level.INFO, " File Name is ==> " + file)
                 
                 dev_file = os.path.join(out_dir, file)
                 local_file = os.path.join("ModuleOutput\\thumbcache\\" + str(thumb_file.getId()) + "-" + thumb_file.getName(), file)
-                self.log(Level.INFO, " Dev File Name is ==> " + dev_file)
-                self.log(Level.INFO, " Local File Name is ==> " + local_file)
+                #self.log(Level.INFO, " Dev File Name is ==> " + dev_file)
+                #self.log(Level.INFO, " Local File Name is ==> " + local_file)
                 
-                if not(self.check_dervived_existance(dataSource, file, abstract_file_info)):
+                if (self.check_dervived_existance(dataSource, file, abstract_file_info)):
                 
                     # Add dervived file
                     # Parameters Are:
