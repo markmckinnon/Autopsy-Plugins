@@ -35,6 +35,11 @@ import jarray
 import inspect
 import os
 import csv
+from geopy.geocoders import Nominatim
+
+from java.net import URL
+from java.io import BufferedReader, InputStreamReader
+import json
 
 from java.lang import Class
 from java.lang import System
@@ -138,10 +143,31 @@ class LatLongIngestModule(DataSourceIngestModule):
                     else:
                         try:
                             attributes = ArrayList()
+                            latitude = row[0]
+                            longitude = row[1]
+                            location_name = " "
+                            
+                            geolocator = Nominatim(user_agent="Autopsy_FS")
+                            try:
+                                location = geolocator.reverse((latitude, longitude))
+                                location_name = location.address
+                            except:
+                                self.log(Level.INFO, "Timeout error after 1st attempt")
+                                for i in range(10):
+                                    try:
+                                        location = geolocator.reverse((latitude, longitude))
+                                        location_name = location.address
+                                        break
+                                    except GeocoderTimedOut:
+                                         self.log(Level.INFO, "Timeout error after 10 retries")
+
                             attributes.add(BlackboardAttribute(
-                                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE.getTypeID(), moduleName, float(row[0])))
+                                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE.getTypeID(), moduleName, float(latitude)))
                             attributes.add(BlackboardAttribute(
-                                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LONGITUDE.getTypeID(), moduleName, float(row[1])))
+                                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LONGITUDE.getTypeID(), moduleName, float(longitude)))
+                            attributes.add(BlackboardAttribute(
+                                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_LOCATION.getTypeID(), moduleName, location_name))
+
                             art = file.newDataArtifact(BlackboardArtifact.Type(BlackboardArtifact.ARTIFACT_TYPE.TSK_GPS_BOOKMARK), attributes)#
 
                             blackboard.postArtifact(art, moduleName, self.context.getJobId())
